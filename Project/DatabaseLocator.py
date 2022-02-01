@@ -45,4 +45,4 @@ class DatabaseLocator:
 
 if __name__ == '__main__':
     Locator = DatabaseLocator()
-    print(Locator.__dict__)
+    print(Locator.get_onedrive_path(sub_folder=("data", "file")))
