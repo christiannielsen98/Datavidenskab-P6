@@ -41,7 +41,6 @@ class Database:
         return csv - pkl
 
     def __ensure_dataframes(self):
-        print(self.__find_new_files())
         for new_file in self.__find_new_files():
             with open(file=f"{new_file}.pkl", mode="wb") as pkl_file:
                 dump(obj=read_csv(f"{new_file}.csv"), file=pkl_file)
@@ -66,11 +65,11 @@ class Database:
     def load_data(self, hourly=True, year=1, meta=False):
         time_base = "hour" if hourly else "minute"
         with open(
-                file=os.path.join(self.__data_path, f"All-Subsystems-{time_base}-year{year}"), mode="rb") as pkl_file:
+                file=os.path.join(self.__data_path, f"All-Subsystems-{time_base}-year{year}.pkl"), mode="rb") as pkl_file:
             dataframe_dict = {"data": load(pkl_file)}
         if meta:
             with open(
-                    file=os.path.join(self.__data_path, f"Metadata-minute-year{year}"), mode="rb") as pkl_file:
+                    file=os.path.join(self.__data_path, f"Metadata-minute-year{year}.pkl"), mode="rb") as pkl_file:
                 dataframe_dict.update({"meta": load(pkl_file)})
 
 
