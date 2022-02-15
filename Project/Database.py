@@ -6,7 +6,7 @@ from pandas import read_csv
 from project_root import project_path
 
 
-class Database:
+class __Database:
     def __init__(self):
         """
         This constructor method creates container attributes for directory paths.
@@ -71,17 +71,9 @@ class Database:
         if meta:
             with open(
                     file=os.path.join(self.__data_path, f"Metadata-minute-year{year}.pkl"), mode="rb") as pkl_file:
-                data = [data, load(pkl_file)]
+                return data, load(pkl_file)
 
         return data
 
 
-Db = Database()
-
-year1_minutes, year1_meta = Db.load_data(hourly=False, meta=True)
-year2_minutes, year2_meta = Db.load_data(hourly=False, year=2, meta=True)
-year1_hour = Db.load_data(hourly=True, meta=True)
-year2_hour = Db.load_data(hourly=True, year=2, meta=True)
-
-if __name__ == '__main__':
-    Locator = Database()
+Db = __Database()
