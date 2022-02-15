@@ -65,15 +65,23 @@ class Database:
     def load_data(self, hourly=True, year=1, meta=False):
         time_base = "hour" if hourly else "minute"
         with open(
-                file=os.path.join(self.__data_path, f"All-Subsystems-{time_base}-year{year}.pkl"), mode="rb") as pkl_file:
-            dataframe_dict = {"data": load(pkl_file)}
+                file=os.path.join(self.__data_path, f"All-Subsystems-{time_base}-year{year}.pkl"),
+                mode="rb") as pkl_file:
+            data = load(pkl_file)
         if meta:
             with open(
                     file=os.path.join(self.__data_path, f"Metadata-minute-year{year}.pkl"), mode="rb") as pkl_file:
-                dataframe_dict.update({"meta": load(pkl_file)})
+                data = [data, load(pkl_file)]
 
-        return dataframe_dict
+        return data
 
+
+Db = Database()
+
+year1_minutes, year1_meta = Db.load_data(hourly=False, meta=True)
+year2_minutes, year2_meta = Db.load_data(hourly=False, year=2, meta=True)
+year1_hour = Db.load_data(hourly=True, meta=True)
+year2_hour = Db.load_data(hourly=True, year=2, meta=True)
 
 if __name__ == '__main__':
     Locator = Database()
