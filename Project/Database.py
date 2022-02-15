@@ -72,6 +72,8 @@ class Database:
                     file=os.path.join(self.__data_path, f"Metadata-minute-year{year}.pkl"), mode="rb") as pkl_file:
                 dataframe_dict.update({"meta": load(pkl_file)})
 
+        return dataframe_dict
+
 
 if __name__ == '__main__':
     Locator = Database()
