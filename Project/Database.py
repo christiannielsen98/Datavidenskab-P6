@@ -30,6 +30,9 @@ class __Database:
         return config['onedrive']['path']
 
     def __move_files(self):
+        """
+        Moves files from the data directory to filetype specific subdirectories.
+        """
         for file in os.listdir(self.get_data_path()):
             suffix = file.split(".")[-1]
             if not os.path.isdir(self.get_data_path(file)):
@@ -39,6 +42,10 @@ class __Database:
                             self.get_data_path(f"{suffix}/{file}"))
 
     def __find_new_files(self):
+        """
+        Iterates through the csv and pkl subdirectories to identify new dataset files.
+        :return: A set of new dataset files
+        """
         csv = set()
         pkl = set()
         if not os.path.isdir(self.get_data_path("pkl")):
@@ -56,21 +63,34 @@ class __Database:
         return csv - pkl
 
     def __create_pickled_dataframes(self):
+        """
+        Creates and pickles dataframe versions of the datasets.
+        """
         self.__move_files()
         for new_file in self.__find_new_files():
             with open(file=self.get_data_path(f"pkl/{new_file}.pkl"), mode="wb") as pkl_file:
                 dump(obj=read_csv(self.get_data_path(f"csv/{new_file}.csv")), file=pkl_file)
 
     @staticmethod
-    def split_string(sub_folder):
-        if isinstance(sub_folder, (list, tuple)):
-            return sub_folder
-        elif "\\" in sub_folder:
-            return sub_folder.split("\\")
+    def split_string(text):
+        """
+        Converts a string to a list of strings.
+        :param text: String to convert to list.
+        :return: A list of strings.
+        """
+        if isinstance(text, (list, tuple)):
+            return text
+        elif "\\" in text:
+            return text.split("\\")
         else:
-            return sub_folder.split("/")
+            return text.split("/")
 
     def get_project_path(self, sub_folder=None):
+        """
+        Creates a string containing a project directory path.
+        :param sub_folder: A list of- or "/" / "\\" divided string of sub-path(s).
+        :return: A string containing to a project directory path.
+        """
         if sub_folder is None:
             return project_path
 
@@ -78,7 +98,9 @@ class __Database:
 
     def get_onedrive_path(self, sub_folder=None):
         """
-        Returns the directory path to the database.
+        Creates a string containing a OneDrive directory path.
+        :param sub_folder: A list of- or "/" / "\\" divided string of sub-path(s).
+        :return: A string containing to a OneDrive directory path.
         """
         if sub_folder is None:
             return self.__onedrive_path
@@ -86,12 +108,28 @@ class __Database:
         return os.path.join(self.__onedrive_path, *self.split_string(sub_folder))
 
     def get_data_path(self, sub_folder=None):
+        """
+        Creates a string containing a dataset directory path.
+        :param sub_folder: A list of- or "/" / "\\" divided string of sub-path(s).
+        :return: A string containing to a dataset directory path.
+        """
         if sub_folder is None:
             return self.get_onedrive_path("data")
 
         return self.get_onedrive_path(f"data/{sub_folder}")
 
+    def save_file_directory(self, filename):
+        subdirectory = filename.split(".")[-1]
+        return self.get_data_path(f"{subdirectory}/{filename}")
+
     def load_data(self, year=1, hourly=True, meta=False):
+        """
+        Loads in the pickled dataframe objects
+        :param year: An integer index to request the dataset of a specific year.
+        :param hourly: A boolean, requests an hour version dataframe if True it requests a minutes version.
+        :param meta: A boolean,
+        :return:
+        """
         time_base = "hour" if hourly else "minute"
         with open(
                 file=self.get_data_path(f"pkl/All-Subsystems-{time_base}-year{year}.pkl"),
