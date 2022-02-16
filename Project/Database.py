@@ -119,6 +119,11 @@ class __Database:
         return self.get_onedrive_path(f"data/{sub_folder}")
 
     def save_file_directory(self, filename):
+        """
+        Creates a string containing the directory path for a given filename.
+        :param filename: Name of the save file.
+        :return: A string containing a directory path.
+        """
         subdirectory = filename.split(".")[-1]
         return self.get_data_path(f"{subdirectory}/{filename}")
 
