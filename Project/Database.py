@@ -36,31 +36,37 @@ class __Database:
         for file in os.listdir(self.get_data_path()):
             suffix = file.split(".")[-1]
             if not os.path.isdir(self.get_data_path(file)):
-                if not os.path.isdir(self.get_data_path(suffix)):
-                    os.mkdir(self.get_data_path(suffix))
+                self.__ensure_directory(suffix)
                 shutil.move(self.get_data_path(file),
                             self.get_data_path(f"{suffix}/{file}"))
+
+    def __ensure_directory(self, subdirectory):
+        """
+
+        :param subdirectory:
+        :return:
+        """
+        if not os.path.isdir(self.get_data_path(subdirectory)):
+            os.mkdir(self.get_data_path(subdirectory))
 
     def __find_new_files(self):
         """
         Iterates through the csv and pkl subdirectories to identify new dataset files.
         :return: A set of new dataset files
         """
-        csv = set()
-        pkl = set()
-        if not os.path.isdir(self.get_data_path("pkl")):
-            os.mkdir(self.get_data_path("pkl"))
+        files = {
+            "csv": set(),
+            "pkl": set()
+        }
 
-        for file in os.listdir(self.get_data_path("csv")):
-            prefix = file.split(".")[0]
-            if file.split(".")[-1] == "csv":
-                csv.add(prefix)
-        for file in os.listdir(self.get_data_path("pkl")):
-            prefix = file.split(".")[0]
-            if file.split(".")[-1] == "pkl":
-                pkl.add(prefix)
+        for file_type in files.keys():
+            self.__ensure_directory(file_type)
+            for file in os.listdir(self.get_data_path(file_type)):
+                prefix = file.split(".")[0]
+                if file.split(".")[-1] == file_type:
+                    files[file_type].add(prefix)
 
-        return csv - pkl
+        return files["csv"] - files["pkl"]
 
     def __create_pickled_dataframes(self):
         """
@@ -118,13 +124,14 @@ class __Database:
 
         return self.get_onedrive_path(f"data/{sub_folder}")
 
-    def save_file_directory(self, filename):
+    def get_save_file_directory(self, filename):
         """
         Creates a string containing the directory path for a given filename.
         :param filename: Name of the save file.
         :return: A string containing a directory path.
         """
         subdirectory = filename.split(".")[-1]
+        self.__ensure_directory(subdirectory)
         return self.get_data_path(f"{subdirectory}/{filename}")
 
     def load_data(self, year=1, hourly=True, meta=False):
@@ -142,7 +149,7 @@ class __Database:
             data = load(pkl_file)
         if meta:
             with open(
-                    file=self.get_data_path(f"pkl/Metadata-minute-year{year}.pkl"), mode="rb") as pkl_file:
+                    file=self.get_data_path(f"pkl/Metadata-{time_base}-year{year}.pkl"), mode="rb") as pkl_file:
                 return data, load(pkl_file)
 
         return data
