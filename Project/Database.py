@@ -88,8 +88,10 @@ class __Database:
             return text
         elif "\\" in text:
             return text.split("\\")
-        else:
+        elif "/" in text:
             return text.split("/")
+        else:
+            return [text]
 
     def get_project_path(self, sub_folder=None):
         """
@@ -130,9 +132,10 @@ class __Database:
         :param filename: Name of the save file.
         :return: A string containing a directory path.
         """
-        subdirectory = filename.split(".")[-1]
-        self.__ensure_directory(subdirectory)
-        return self.get_data_path(f"{subdirectory}/{filename}")
+        file_subdirectory_list = self.split_string(filename)
+        subdirectory = [filename.split(".")[-1]] + file_subdirectory_list[:-1]
+        self.__ensure_directory("/".join(subdirectory))
+        return self.get_data_path("/".join(subdirectory + [file_subdirectory_list[-1]]))
 
     def load_data(self, year=1, hourly=True, meta=False):
         """
