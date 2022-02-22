@@ -16,8 +16,6 @@ corr = year1_minute[consumption].corr()
 
 pd.options.mode.chained_assignment = None
 
-i=0
-
 explained_dict = {}
 correlation_dict = {}
 columns = corr.columns.tolist()
@@ -26,7 +24,6 @@ for threshold in np.arange(1, 0.5, -0.05):
     for col in columns:
         if col not in [val for liste in explained_dict.values() for val in liste]:
             if corr[col].sum() > 1:
-                i+=1
                 a = corr.loc[corr[col] >= threshold, col].index.to_list()
                 df2 = year1_minute[a]
                 a.remove(col)
@@ -51,3 +48,12 @@ for threshold in np.arange(1, 0.5, -0.05):
         for col in value:
             if col in columns:
                 columns.remove(col)
+
+print(correlation_dict)
+
+standby_excluded_cols = set()
+for key, value in correlation_dict.items():
+    for col in value["attr"]:
+        if "standby" in col.lower():
+            standby_excluded_cols.add(col)
+print(standby_excluded_cols)
