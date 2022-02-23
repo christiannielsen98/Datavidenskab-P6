@@ -166,10 +166,6 @@ class __Database:
                 data.append(read_csv(self.get_save_file_directory(f"All-Subsystems-{time_base}-year{year}.csv")))
             if meta:
                 data.append(read_csv(self.get_save_file_directory(f"Metadata-{time_base}-year{year}.csv")))
-            if production:
-                with open(
-                        file=self.get_save_file_directory(f"production_data.pkl"), mode="rb") as pkl_file:
-                    data.append(load(pkl_file))
 
         if len(data) == 1:
             return data[0]
