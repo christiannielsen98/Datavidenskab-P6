@@ -173,8 +173,8 @@ class __Database:
         return data
 
     def pickle_dataframe(self, dataframe, filename):
-        with open(self.get_save_file_directory(filename=filename), mode="wb"):
-            dump(obj=dataframe, file=filename)
+        with open(self.get_save_file_directory(filename=filename), mode="wb")as pkl_file:
+            dump(obj=dataframe, file=pkl_file)
 
 
 
