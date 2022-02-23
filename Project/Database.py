@@ -137,7 +137,7 @@ class __Database:
         self.__ensure_directory("/".join(subdirectory))
         return self.get_data_path("/".join(subdirectory + [file_subdirectory_list[-1]]))
 
-    def load_data(self, year=1, hourly=True, meta=False):
+    def load_data(self, year=1, hourly=True, timeseries=True, meta=False):
         """
         Loads in the pickled dataframe objects
         :param year: An integer index to request the dataset of a specific year.
@@ -146,16 +146,34 @@ class __Database:
         :return:
         """
         time_base = "hour" if hourly else "minute"
-        with open(
-                file=self.get_data_path(f"pkl/All-Subsystems-{time_base}-year{year}.pkl"),
-                mode="rb") as pkl_file:
-            data = load(pkl_file)
-        if meta:
-            with open(
-                    file=self.get_data_path(f"pkl/Metadata-{time_base}-year{year}.pkl"), mode="rb") as pkl_file:
-                return data, load(pkl_file)
+        data = []
+        try:
+            if timeseries:
+                with open(
+                        file=self.get_data_path(f"pkl/All-Subsystems-{time_base}-year{year}.pkl"),
+                        mode="rb") as pkl_file:
+                    data.append(load(pkl_file))
+            if meta:
+                with open(
+                        file=self.get_data_path(f"pkl/Metadata-{time_base}-year{year}.pkl"), mode="rb") as pkl_file:
+                    data.append(load(pkl_file))
+        except:
+            data.append(read_csv(self.get_data_path(f"pkl/All-Subsystems-{time_base}-year{year}.csv")))
+            if meta:
+                data.append(read_csv(self.get_data_path(f"Metadata-{time_base}-year{year}.csv")))
+
+        if len(data) == 1:
+            return data[0]
 
         return data
 
+    def pickle_dataframe(self, dataframe, filename):
+        with open(self.get_save_file_directory(filename=filename), mode="wb"):
+            dump(obj=dataframe, file=filename)
+            
+
 
 Db = __Database()
+
+if __name__ == "__main__":
+    print(Db.load_data())
