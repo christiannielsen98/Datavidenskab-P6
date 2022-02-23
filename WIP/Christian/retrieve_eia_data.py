@@ -1,5 +1,7 @@
 import eia
 import pandas as pd
+from Project.Database import Db
+
 pd.options.display.max_columns = 8
 
 api_key = "huB9HhJVZ737qVBnAxt9Ce1nIbLqtx1I1JPltZk4"
@@ -21,3 +23,5 @@ for key, val in series_id_dict.items():
     # series_search.rename(columns={series_search.columns[0]: key}, inplace=True)
     df = pd.concat(objs=(df, series_search), axis=1)
 print(df.head(24))
+
+Db.pickle_dataframe(filename="production_data.pkl", dataframe=df)
