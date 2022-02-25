@@ -2,7 +2,7 @@ import re
 
 from Project.Database import Db
 
-year1_hour_meta = Db.load_data(timeseries=False, meta=True)
+year1_hour_meta = Db.load_data(consumption=False, meta=True)
 column_names = {}
 column_name_bigrams = {}
 standby_names = {}
