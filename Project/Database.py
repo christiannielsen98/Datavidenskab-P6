@@ -34,11 +34,9 @@ class __Database:
         Moves files from the data directory to filetype specific subdirectories.
         """
         for file in os.listdir(self.get_data_path()):
-            suffix = file.split(".")[-1]
             if not os.path.isdir(self.get_data_path(file)):
-                self.__ensure_directory(suffix)
                 shutil.move(self.get_data_path(file),
-                            self.get_data_path(f"{suffix}/{file}"))
+                            self.get_save_file_directory(file))
 
     def __ensure_directory(self, subdirectory):
         """
@@ -74,8 +72,8 @@ class __Database:
         """
         self.__move_files()
         for new_file in self.__find_new_files():
-            with open(file=self.get_data_path(f"pkl/{new_file}.pkl"), mode="wb") as pkl_file:
-                dump(obj=read_csv(self.get_data_path(f"csv/{new_file}.csv")), file=pkl_file)
+            with open(file=self.get_save_file_directory(f"{new_file}.pkl"), mode="wb") as pkl_file:
+                dump(obj=read_csv(self.get_save_file_directory(f"{new_file}.csv")), file=pkl_file)
 
     @staticmethod
     def split_string(text):
