@@ -19,6 +19,7 @@ def create_production_dataframe(dataframe, filename):
     production_df.reset_index(drop=True, inplace=True)
     transformed_production_df = DataFrame(columns=production_df["FUEL_TYPE"].unique(),
                                           index=production_df["HOUR"].unique()).fillna(0)
+
     for index in production_df.index:
         transformed_production_df.loc[production_df.loc[index, "HOUR"], production_df.loc[index, "FUEL_TYPE"]] = \
         production_df.loc[index, "PERCENT_MARGINAL"]
