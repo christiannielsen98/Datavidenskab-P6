@@ -157,7 +157,7 @@ class __Database:
                     data.append(load(pkl_file))
             if production:
                 with open(
-                        file=self.get_save_file_directory(f"production_data.pkl"), mode="rb") as pkl_file:
+                        file=self.get_save_file_directory(f"Production_year{year}.pkl"), mode="rb") as pkl_file:
                     data.append(load(pkl_file))
         except:
             if consumption:
