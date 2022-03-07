@@ -41,7 +41,7 @@ for hourly in [True, False]:
                 #     test = 0
                 #     test_1 = 0
                 if len(set(value_1.index) - set(value_2.index)) < len(value_1) / 10 and \
-                    round(len(set(value_1.index)) / len(set(value_2.index)), 3) > 0.2:
+                        round(len(set(value_1.index)) / len(set(value_2.index)), 3) > 0.2:
                     print(key_1)
                     print(key_2)
                     print("    Status switched count          :",
