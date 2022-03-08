@@ -18,7 +18,9 @@ for hourly in [True, False]:
         house = house.ffill()
 
         meta = meta.loc[(house != house.shift(1)).sum(0) > 1]
-        house = house[meta.index]
+        house = house[["Timestamp"] + meta.index.tolist()]
+
+        house["Timestamp"] = pd.to_datetime(house["Timestamp"], format="%Y-%m-%d %H:%M:%S%z")
 
         Db.pickle_dataframe(dataframe=meta, filename=f"Metadata-{time_base}-year{year}.pkl")
         Db.pickle_dataframe(dataframe=house, filename=f"All-Subsystems-{time_base}-year{year}.pkl")
