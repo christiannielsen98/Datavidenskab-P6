@@ -22,9 +22,13 @@ def create_production_dataframe(dataframe, filename):
 
     for index in production_df.index:
         transformed_production_df.loc[production_df.loc[index, "HOUR"], production_df.loc[index, "FUEL_TYPE"]] = \
-        production_df.loc[index, "PERCENT_MARGINAL"]
+            production_df.loc[index, "PERCENT_MARGINAL"]
 
     transformed_production_df = transformed_production_df.loc[lambda self: self.index <= dataframe["Timestamp"].max()]
+
+    transformed_production_df.drop(
+        columns=["Min Gen/Dispatch Reset", "Miscellaneous", "Demand Response", "Missing Data", "Virtual Sale at NY",
+                 "Virtual Sale at MISO"])
 
     Db.pickle_dataframe(dataframe=transformed_production_df, filename=filename)
 
