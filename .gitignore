@@ -136,3 +136,8 @@ Pipfile
 Pipfile.lock
 /Project/TPM/TAR
 /Project/TPM/output/
+/Project/TPM/TAR/
+/Project/TPM/output/
+/Project/TPM/__init__.py
+/Project/TPM/main.py
+/Project/TPM/README.md
