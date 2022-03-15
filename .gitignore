@@ -134,4 +134,5 @@ dmypy.json
 *.ini
 Pipfile
 Pipfile.lock
-/Project/TPM/
+/Project/TPM/TAR
+/Project/TPM/output/
