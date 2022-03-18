@@ -1,6 +1,7 @@
 from difflib import SequenceMatcher
 
 import pandas as pd
+import plotly.express as px
 
 from Project.Database import Db
 
@@ -92,3 +93,8 @@ production_source_df["CO2(Grams)/kWh"] = (production_source_df["BTU/kWh"] * prod
 
 production["CO2(Grams)/kWh"] = production_source_df["CO2(Grams)/kWh"].T.values.dot(production.values.T)
 print(production.head())
+Db.pickle_dataframe(production, "Production_year1.pkl")
+
+# year1, production = Db.load_data(year=1, production=True, meta=False)
+# fig = px.line(production, x=production.index, y="CO2(Grams)/kWh")
+# fig.show()
