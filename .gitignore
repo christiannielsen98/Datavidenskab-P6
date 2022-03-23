@@ -134,10 +134,10 @@ dmypy.json
 *.ini
 Pipfile
 Pipfile.lock
-/Project/TPM/TAR
-/Project/TPM/output/
-/Project/TPM/TAR/
-/Project/TPM/output/
-/Project/TPM/__init__.py
-/Project/TPM/main.py
-/Project/TPM/README.md
+/Project/04TPMAlgorithm/TPM/TAR
+/Project/04TPMAlgorithm/TPM/output/
+/Project/04TPMAlgorithm/TPM/TAR/
+/Project/04TPMAlgorithm/TPM/output/
+/Project/04TPMAlgorithm/TPM/__init__.py
+/Project/04TPMAlgorithm/TPM/main.py
+/Project/04TPMAlgorithm/TPM/README.md
