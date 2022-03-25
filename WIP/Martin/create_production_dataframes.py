@@ -1,8 +1,9 @@
 import os
+from difflib import SequenceMatcher
 
-from pandas import DataFrame, read_csv, concat, period_range, to_datetime
+from pandas import DataFrame, read_html, read_csv, concat, period_range, to_datetime
 
-from Database import Db
+from Project.Database import Db
 
 
 def create_production_dataframe(dataframe, filename):
@@ -40,7 +41,7 @@ def create_production_dataframe(dataframe, filename):
 
 
 def find_co2_emissions(production):
-    production_source_df = pd.DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(Grams)/BTU"])
+    production_source_df = DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(Grams)/BTU"])
 
     production_source_df["EnergySource"] = production.columns.values
 
@@ -80,9 +81,9 @@ def find_co2_emissions(production):
             production_source_df.loc[production_source_df["EnergySource"] == energy_source, "BTU/kWh"] = values[
                 "BTU/kWh"]
 
-    CO2_per_BTU = pd.read_html("https://www.eia.gov/environment/emissions/co2_vol_mass.php")[0].loc[1:]
+    CO2_per_BTU = read_html("https://www.eia.gov/environment/emissions/co2_vol_mass.php")[0].loc[1:]
 
-    emission_df = pd.DataFrame(columns=["EnergySource", "CO2(Grams)/BTU"])
+    emission_df = DataFrame(columns=["EnergySource", "CO2(Grams)/BTU"])
     emission_df["EnergySource"] = CO2_per_BTU["Unnamed: 0_level_0"]["Carbon Dioxide (CO2) Factors:"].values
     emission_df["KilogramsCO2PerMillionBtu"] = CO2_per_BTU["Kilograms CO2"]["Per Million Btu"].values
     emission_df = emission_df.loc[lambda self: self["KilogramsCO2PerMillionBtu"].str.contains("[0-9]+\\.[0-9]+")]
