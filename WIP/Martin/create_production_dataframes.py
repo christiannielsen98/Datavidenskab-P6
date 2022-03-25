@@ -1,7 +1,6 @@
 import os
 from difflib import SequenceMatcher
 
-import pandas as pd
 import plotly.express as px
 from pandas import DataFrame, read_csv, read_html, concat, period_range, to_datetime, date_range
 
