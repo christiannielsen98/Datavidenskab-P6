@@ -26,24 +26,26 @@ for hourly in [True, False]:
         house['Load_StatusClothesWasher'] = np.where(house['Elec_PowerClothesWasher'] > 0, 1, 0)
         house['Load_StatusDryerPowerTotal'] = np.where(house['Load_DryerPowerTotal'] > 0, 1, 0)
 
-        meta.loc['Load_StatusClothesWasher'] = {"Subsystem": "Loads",
-                                                "Measurement_Location": "Utility",
-                                                "Parameter": "Status_OnOff",
-                                                "Description": "Number to indicate whether clothes washer is activated (1: Yes, O: No)",
-                                                "Units": "Binary Status",
-                                                "Aggregation_Method": "Average",
-                                                "min_value": 0,
-                                                "max_value": 1,
-                                                }
-        meta.loc['Load_StatusDryerPowerTotal'] = {"Subsystem": "Loads",
-                                                "Measurement_Location": "Utility",
-                                                "Parameter": "Status_OnOff",
-                                                "Description": "Number to indicate whether dryer is activated (1: Yes, O: No)",
-                                                "Units": "Binary Status",
-                                                "Aggregation_Method": "Average",
-                                                "min_value": 0,
-                                                "max_value": 1,
-                                                }
+        meta.loc['Load_StatusClothesWasher'] = {
+            "Subsystem": "Loads",
+            "Measurement_Location": "Utility",
+            "Parameter": "Status_OnOff",
+            "Description": "Number to indicate whether clothes washer is activated (1: Yes, O: No)",
+            "Units": "Binary Status",
+            "Aggregation_Method": "Average",
+            "min_value": 0,
+            "max_value": 1,
+        }
+        meta.loc['Load_StatusDryerPowerTotal'] = {
+            "Subsystem": "Loads",
+            "Measurement_Location": "Utility",
+            "Parameter": "Status_OnOff",
+            "Description": "Number to indicate whether dryer is activated (1: Yes, O: No)",
+            "Units": "Binary Status",
+            "Aggregation_Method": "Average",
+            "min_value": 0,
+            "max_value": 1,
+        }
 
         Db.pickle_dataframe(dataframe=meta, filename=f"Metadata-{time_base}-year{year}.pkl")
         Db.pickle_dataframe(dataframe=house, filename=f"All-Subsystems-{time_base}-year{year}.pkl")
