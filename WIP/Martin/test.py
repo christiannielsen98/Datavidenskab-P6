@@ -6,51 +6,91 @@ import pandas as pd
 
 from Project.Database import Db
 
+fill_words = ["Instantaneous", "Power", "Consumption", "By", "Includes", "In", "Appliance", "Load", "Status", "Usage", "Used", "At",
+              "Of", "On", "And", "From", "Total", "Subset", "Midnight", ";", ",", "."]
 
 def replace_short_remove_fill(string):
     if "MBR" in string:
-        string = string.replace("MBR", "Masterbedroom")
+        string = string.replace("MBR", "MasterBedRoom")
     elif "MBA" in string:
-        string = string.replace("MBA", "Masterbathroom")
+        string = string.replace("MBA", "MasterBathroom")
     elif "BR" in string:
         string = string.replace("BR", "Bedroom")
     elif "BA" in string:
         string = string.replace("BA", "Bathroom")
     elif "LR" in string:
-        string = string.replace("LR", "Livingroom")
-    if "Appliance" in string:
-        string = string.replace("Appliance", "")
-    if "Load" in string:
-        string = string.replace("Load", "")
-    if "Status" in string:
-        string = string.replace("Status", "")
-    if "Power" in string:
-        string = string.replace("Power", "")
-    if "Usage" in string:
-        string = string.replace("Usage", "")
+        string = string.replace("LR", "LivingRoom")
+    elif "DR" in string:
+        string = string.replace("DR", "DiningRoom")
+    elif "Receptacles" in string:
+        string = string.replace("Receptacles", "Plug")
     if "Plugs" in string:
         string = string.replace("Plugs", "Plug")
+    if "Lighting" in string:
+        string = string.replace("Lighting", "Light")
+    if "Lights" in string:
+        string = string.replace("Lights", "Light")
+    if "1st" in string:
+        string = string.replace("1st", "First")
+    if "2nd" in string:
+        string = string.replace("2nd", "Second")
+    if "Moisture Generator" in string:
+        string = string.replace("Moisture Generator", "Latent")
+    for fill_word in fill_words:
+        if fill_word in string:
+            string = string.replace(fill_word, "")
     return string
+
 
 def direct_matcher(status_parts, matches_dict, sub_subsystems):
     for consumer_orig, consumer_row in meta.loc[
         lambda self: consumer_condition(self, sub_subsystems) & location_condition(
             self)].iterrows():
+        included = False
         consumer = replace_short_remove_fill(consumer_orig)
-        consumer_parts = re.findall("[A-Z0-9]+[a-z0-9]*", consumer.split("_")[-1])
+        consumer_parts = re.findall("[A-Z0-9][a-z]*", consumer.split("_")[-1])
+        description_parts = re.findall("[A-Z0-9][a-z]*", replace_short_remove_fill(
+            "".join(part.capitalize() for part in consumer_row["Description"].split(" "))))
+        match_condition = (lambda compare_list, n: (
+                pd.Series([(status_part.lower() == compare_part.lower()) for status_part in
+                           status_parts for compare_part in compare_list]).sum() >= n))
         if ("Light" in status and "Light" in consumer) or not ("Light" in status or "Light" in consumer):
             if ("Plug" in status and "Plug" in consumer) or not ("Plug" in status or "Plug" in consumer):
-                if pd.Series(
-                        [(status_part == consumer_part) for status_part in status_parts for
-                         consumer_part in consumer_parts]).sum() == 2:
-                    matches_dict[status_orig] = ["".join(status_parts), "".join(consumer_parts), consumer_orig]
-                elif pd.Series(
-                        [(status_part == consumer_part) for status_part in status_parts for
-                         consumer_part in consumer_parts]).sum() == 1:
-                    matches_dict[status_orig] = ["".join(status_parts), "".join(consumer_parts), consumer_orig]
+                for i in range(1, len(description_parts) + 1)[::-1]:
+                    if match_condition(description_parts, i):
+                        matches_dict[status_orig] = {
+                            "consumer": consumer_orig,
+                            "match_words": ["".join(status_parts), "".join(description_parts)]
+                        }
+                        included = True
+                        break
+                    elif match_condition(consumer_parts, i):
+                        matches_dict[status_orig] = {
+                            "consumer": consumer_orig,
+                            "match_words": ["".join(status_parts), "".join(consumer_parts)]
+                        }
+                        included = True
+                        break
+            for i in range(1, len(description_parts) + 1)[::-1]:
+                    if match_condition(description_parts, i):
+                        matches_dict[status_orig] = {
+                            "consumer": consumer_orig,
+                            "match_words": ["".join(status_parts), "".join(description_parts)]
+                        }
+                        included = True
+                        break
+                    elif match_condition(consumer_parts, i):
+                        matches_dict[status_orig] = {
+                            "consumer": consumer_orig,
+                            "match_words": ["".join(status_parts), "".join(consumer_parts)]
+                        }
+                        included = True
+                        break
+        if included:
+            break
     return matches_dict
-
-
+#
+#
 for hourly in [False]:  # True, False
     for year in [1]:  # 1, 2
         time_base = "hour" if hourly else "minute"
@@ -79,46 +119,48 @@ for hourly in [False]:  # True, False
             location_condition = (
                 lambda self: self["Measurement_Location"].isin([status_row["Measurement_Location"], "Multiple"]))
 
-            status_parts = re.findall("[A-Z]+[a-z0-9]*", status.split("_")[-1])
+            status_parts = re.findall("[A-Z0-9][a-z]*", status.split("_")[-1])
 
             matches_dict.update(direct_matcher(status_parts, matches_dict, ["Electrical", "Lighting"]))
 
             if status_orig not in matches_dict.keys():
                 matches_dict.update(direct_matcher(status_parts, matches_dict, ["Loads", "Load"]))
-
-            # other_dict[status_orig] = {}
-            # for consumer_orig in consumers.index:
-            #     consumer = consumer_orig
-            #     if "MBR" in consumer:
-            #         consumer = consumer.replace("MBR", "Masterbedroom")
-            #     elif "MBA" in consumer:
-            #         consumer = consumer.replace("MBA", "Masterbathroom")
-            #     elif "BR" in consumer:
-            #         consumer = consumer.replace("BR", "Bedroom")
-            #     elif "BA" in consumer:
-            #         consumer = consumer.replace("BA", "Bathroom")
-            #     elif "LR" in consumer:
-            #         consumer = consumer.replace("LR", "Livingroom")
-            #     consumer_parts = re.findall("[A-Z]+[a-z0-9]*", consumer.split("_")[-1])
-            #     consumer_parts.remove("Power")
-            #     if status_room == consumer_room or consumer_room == "Multiple":
-            #         if not ("Light" in status or "Light" in consumer):
-            #                 other_dict[status_orig].update({
-            #                     str(pd.Series(
-            #                             SequenceMatcher(a=status_part, b=consumer_part).ratio()
-            #                             for status_part in status_parts
-            #                             for consumer_part in consumer_parts).mean()
-            #                     ): ["".join(status_parts), "".join(consumer_parts), consumer_orig]
-            #                 })
-
+#
+#             # other_dict[status_orig] = {}
+#             # for consumer_orig in consumers.index:
+#             #     consumer = consumer_orig
+#             #     if "MBR" in consumer:
+#             #         consumer = consumer.replace("MBR", "Masterbedroom")
+#             #     elif "MBA" in consumer:
+#             #         consumer = consumer.replace("MBA", "Masterbathroom")
+#             #     elif "BR" in consumer:
+#             #         consumer = consumer.replace("BR", "Bedroom")
+#             #     elif "BA" in consumer:
+#             #         consumer = consumer.replace("BA", "Bathroom")
+#             #     elif "LR" in consumer:
+#             #         consumer = consumer.replace("LR", "Livingroom")
+#             #     consumer_parts = re.findall("[A-Z]+[a-z0-9]*", consumer.split("_")[-1])
+#             #     consumer_parts.remove("Power")
+#             #     if status_room == consumer_room or consumer_room == "Multiple":
+#             #         if not ("Light" in status or "Light" in consumer):
+#             #                 other_dict[status_orig].update({
+#             #                     str(pd.Series(
+#             #                             SequenceMatcher(a=status_part, b=consumer_part).ratio()
+#             #                             for status_part in status_parts
+#             #                             for consumer_part in consumer_parts).mean()
+#             #                     ): ["".join(status_parts), "".join(consumer_parts), consumer_orig]
+#             #                 })
+#
         for key, value in matches_dict.items():
             print(key)
             print("  ", value)
+        print(len(matches_dict))
 
         missing_statuses = [status for status in status_attributes.index if status not in matches_dict.keys()]
         print(missing_statuses)
-        #     print(key)
-        #     print("  ", value[str(max(value.keys()))])
-        # for s_key, s_value in value.items():
-        #     print("  ", s_value)
-        #     print("    ", s_key)
+        print(len(missing_statuses))
+#         #     print(key)
+#         #     print("  ", value[str(max(value.keys()))])
+#         # for s_key, s_value in value.items():
+#         #     print("  ", s_value)
+#         #     print("    ", s_key)
