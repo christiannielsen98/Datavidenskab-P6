@@ -1,8 +1,11 @@
 import os
+from difflib import SequenceMatcher
 
-from pandas import DataFrame, read_csv, concat, period_range, to_datetime
+import pandas as pd
+import plotly.express as px
+from pandas import DataFrame, read_csv, read_html, concat, period_range, to_datetime, date_range
 
-from Database import Db
+from Project.Database import Db
 
 
 def create_production_dataframe(dataframe, filename):
@@ -15,10 +18,18 @@ def create_production_dataframe(dataframe, filename):
 
     production_df["HOUR"] = to_datetime(arg=production_df["HOUR"], format="%d%b%Y:%H:%M:%S").dt.strftime(
         "%Y-%m-%d %H:%M:%S")
+
+    production_df = production_df.loc[lambda self: ~self["FUEL_TYPE"].isin(
+        ["Min Gen/Dispatch Reset", "Miscellaneous", "Demand Response", "Missing Data", "Virtual Sale at NY",
+         "Virtual Sale at MISO"])]
+
     production_df.sort_values(by="HOUR", inplace=True)
     production_df.reset_index(drop=True, inplace=True)
+
     transformed_production_df = DataFrame(columns=production_df["FUEL_TYPE"].unique(),
-                                          index=production_df["HOUR"].unique()).fillna(0)
+                                          index=date_range(start=production_df["HOUR"].min(),
+                                                           end=production_df["HOUR"].max(),
+                                                           freq="H")).fillna(0)
 
     for index in production_df.index:
         transformed_production_df.loc[production_df.loc[index, "HOUR"], production_df.loc[index, "FUEL_TYPE"]] = \
@@ -26,23 +37,40 @@ def create_production_dataframe(dataframe, filename):
 
     transformed_production_df = transformed_production_df.loc[lambda self: self.index <= dataframe["Timestamp"].max()]
 
-    transformed_production_df.drop(
-        columns=["Min Gen/Dispatch Reset", "Miscellaneous", "Demand Response", "Missing Data", "Virtual Sale at NY",
-                 "Virtual Sale at MISO"], inplace=True)
+    # for col in ["Min Gen/Dispatch Reset", "Miscellaneous", "Demand Response", "Missing Data", "Virtual Sale at NY",
+    #             "Virtual Sale at MISO"]:
+    #     try:
+    #         transformed_production_df.drop(columns=col, inplace=True)
+    #     except:
+    #         continue
+
     transformed_production_df = transformed_production_df.loc[:, lambda self: self.max(0) != 0]
 
-    transformed_production_df.loc[lambda self: self.sum(1) > 0] = transformed_production_df.loc[
-        lambda self: self.sum(1) > 0].div(lambda self: self.sum(1))
+    transformed_production_df = transformed_production_df.T.div(transformed_production_df.sum(1).values,
+                                                                fill_value=0).T
 
-    transformed_production_df = find_co2_emissions(transformed_production_df)
+    transformed_production_df["Hour"] = transformed_production_df.index.hour
+    print(transformed_production_df.fillna(0).loc[lambda self: self["Hour"] == 1].loc[
+            lambda self: (self.sum(1) == 0), lambda self: ~self.columns.isin(["Hour"])])
 
-    Db.pickle_dataframe(dataframe=transformed_production_df, filename=filename)
+    # for hour in transformed_production_df["Hour"]:
+    #     transformed_production_df.loc[lambda self: self["Hour"] == hour].loc[
+    #         lambda self: (self.fillna(0).sum(1) == 0), lambda self: ~self.columns.isin(["Hour"])].fillna(
+    #         transformed_production_df.loc[lambda self: self["Hour"] == hour].loc[
+    #             lambda self: (self.fillna(0).sum(1) != 0), lambda self: ~self.columns.isin(["Hour"])].fillna(0).mean(
+    #             0), inplace=True)
+
+    # transformed_production_df.drop("Hour", inplace=True)
+
+    # transformed_production_df = find_co2_emissions(transformed_production_df)
+
+    # Db.pickle_dataframe(dataframe=transformed_production_df, filename=filename)
 
 
 def find_co2_emissions(production):
-    production_source_df = pd.DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(Grams)/BTU"])
+    production_source_df = DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(Grams)/BTU"])
 
-    production_source_df["EnergySource"] = production.columns.values
+    production_source_df["EnergySource"] = production.columns.values½
 
     col_dict = {
         "Renewable": {
@@ -80,9 +108,9 @@ def find_co2_emissions(production):
             production_source_df.loc[production_source_df["EnergySource"] == energy_source, "BTU/kWh"] = values[
                 "BTU/kWh"]
 
-    CO2_per_BTU = pd.read_html("https://www.eia.gov/environment/emissions/co2_vol_mass.php")[0].loc[1:]
+    CO2_per_BTU = read_html("https://www.eia.gov/environment/emissions/co2_vol_mass.php")[0].loc[1:]
 
-    emission_df = pd.DataFrame(columns=["EnergySource", "CO2(Grams)/BTU"])
+    emission_df = DataFrame(columns=["EnergySource", "CO2(Grams)/BTU"])
     emission_df["EnergySource"] = CO2_per_BTU["Unnamed: 0_level_0"]["Carbon Dioxide (CO2) Factors:"].values
     emission_df["KilogramsCO2PerMillionBtu"] = CO2_per_BTU["Kilograms CO2"]["Per Million Btu"].values
     emission_df = emission_df.loc[lambda self: self["KilogramsCO2PerMillionBtu"].str.contains("[0-9]+\\.[0-9]+")]
@@ -126,11 +154,15 @@ def find_co2_emissions(production):
             production_source_df["BTU/kWh"] * production_source_df["CO2(Grams)/BTU"]).astype("float").round(2)
 
     production["CO2(Grams)/kWh"] = production_source_df["CO2(Grams)/kWh"].T.values.dot(production.values.T)
+
+    fig = px.line(production, x=production.index, y="CO2(Grams)/kWh")
+    fig.show()
+
     return production
 
 
 data_dict_list = [{"dataframe": Db.load_data(hourly=True), "filename": "Production_year1.pkl"},
-                  {"dataframe": Db.load_data(hourly=True, year=1), "filename": "Production_year2.pkl"}]
+                  {"dataframe": Db.load_data(hourly=True, year=2), "filename": "Production_year2.pkl"}]
 
 for data_dict in data_dict_list:
     create_production_dataframe(**data_dict)
