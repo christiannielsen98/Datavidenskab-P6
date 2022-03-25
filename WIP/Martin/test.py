@@ -1,166 +1,202 @@
 import re
-# from PyDictionary import PyDictionary
 from difflib import SequenceMatcher
 
 import pandas as pd
 
 from Project.Database import Db
 
-fill_words = ["Instantaneous", "Power", "Consumption", "By", "Includes", "In", "Appliance", "Load", "Status", "Usage", "Used", "At",
-              "Of", "On", "And", "From", "Total", "Subset", "Midnight", ";", ",", "."]
 
 def replace_short_remove_fill(string):
-    if "MBR" in string:
-        string = string.replace("MBR", "MasterBedRoom")
-    elif "MBA" in string:
-        string = string.replace("MBA", "MasterBathroom")
-    elif "BR" in string:
-        string = string.replace("BR", "Bedroom")
-    elif "BA" in string:
-        string = string.replace("BA", "Bathroom")
-    elif "LR" in string:
-        string = string.replace("LR", "LivingRoom")
-    elif "DR" in string:
-        string = string.replace("DR", "DiningRoom")
-    elif "Receptacles" in string:
-        string = string.replace("Receptacles", "Plug")
-    if "Plugs" in string:
-        string = string.replace("Plugs", "Plug")
-    if "Lighting" in string:
-        string = string.replace("Lighting", "Light")
-    if "Lights" in string:
-        string = string.replace("Lights", "Light")
-    if "1st" in string:
-        string = string.replace("1st", "First")
-    if "2nd" in string:
-        string = string.replace("2nd", "Second")
-    if "Moisture Generator" in string:
-        string = string.replace("Moisture Generator", "Latent")
+    fill_words = ['Whether', 'Warm', 'Used', 'Usage', 'Total', 'Subset', 'Status', 'Simulate', 'Sens', 'Power',
+                  'Plugged', 'Peninsula', 'Opening', 'Number', 'Midnight', 'Located', 'Load', 'load', 'Items', 'Into',
+                  'Instrumentation', 'Instantaneous', 'Indicate', 'Includes', 'From', 'Emulator', 'Consumption',
+                  'Appliance', 'Adding', 'Activated', '(1:Yes,O:No)', ';', '.', ',']
+    something_dict = {
+        '1Lights': ['1Lights', '1Light'],
+        '1st': ['1st', 'First'],
+        '2nd': ['2nd', 'Second'],
+        'AUP': ['AUP', 'AUpstairs'],
+        'BUP': ['BUP', 'BUpstairs'],
+        'ADown': ['ADown', 'ADownstairs'],
+        'BDown': ['BDown', 'BDownstairs'],
+        'ALighting': ['ALighting', 'ALight'],
+        'And': ['And', ''],
+        'Are': ['Are', ''],
+        'At': ['At', ''],
+        'Blue': ['Blue', 'Blu'],
+        'By': ['By', ''],
+        'Cooktop': ['Cooktop', 'Oven'],
+        'In': ['In', ''],
+        'Is': ['Is', ''],
+        'KPlugs': ['KPlugs', 'KitchenPlug'],
+        'Kit': ['Kit', 'Kitchen'],
+        'Lighting': ['Lighting', 'Light'],
+        'Lights': ['Lights', 'Light'],
+        'Of': ['Of', ''],
+        'Off': ['Off', ''],
+        'On': ['On', ''],
+        'Or': ['Or', ''],
+        'PCMonitor': ['PCMonitor', 'ComputerMonitor'],
+        'Prnt': ['Prnt', 'Parent'],
+        'Plugs': ['Plugs', 'Plug'],
+        'Ray': ['Ray', 'ray'],
+        'Receptacles': ['Receptacles', 'Plug'],
+        'Room': ['Room', 'room'],
+        'The': ['The', ''],
+        'To': ['To', ''],
+        'TV': ['TV', 'Television']
+    }
+    if 'MBR' in string:
+        string = string.replace('MBR', 'MasterBedRoom')
+    elif 'MBA' in string:
+        string = string.replace('MBA', 'MasterBathroom')
+    elif 'BR' in string:
+        string = string.replace('BR', 'Bedroom')
+    elif 'BA' in string:
+        string = string.replace('BA', 'Bathroom')
+    elif 'LR' in string:
+        string = string.replace('LR', 'LivingRoom')
+    elif 'DR' in string:
+        string = string.replace('DR', 'DiningRoom')
+    elif 'Receptacles' in string:
+        string = string.replace('Receptacles', 'Plug')
     for fill_word in fill_words:
         if fill_word in string:
-            string = string.replace(fill_word, "")
+            string = string.replace(fill_word, '')
+    for str_prt in re.findall('[A-Z0-9]+[a-z]*', string):
+        if str_prt in something_dict.keys():
+            string = string.replace(*something_dict[str_prt], 1)
+    for str_prt in re.findall('[A-Z][a-z]*', string):
+        if str_prt in something_dict.keys():
+            string = string.replace(*something_dict[str_prt], 1)
     return string
 
 
-def direct_matcher(status_parts, matches_dict, sub_subsystems):
+def direct_matcher(status_parts_list, matches_dict, sub_subsystems):
     for consumer_orig, consumer_row in meta.loc[
         lambda self: consumer_condition(self, sub_subsystems) & location_condition(
             self)].iterrows():
         included = False
-        consumer = replace_short_remove_fill(consumer_orig)
-        consumer_parts = re.findall("[A-Z0-9][a-z]*", consumer.split("_")[-1])
-        description_parts = re.findall("[A-Z0-9][a-z]*", replace_short_remove_fill(
-            "".join(part.capitalize() for part in consumer_row["Description"].split(" "))))
-        match_condition = (lambda compare_list, n: (
+        consumer = replace_short_remove_fill(consumer_orig.split('_')[-1])
+        joined_description = ''.join(part.capitalize() for part in consumer_row['Description'].split(' '))
+        cleaned_description = replace_short_remove_fill(joined_description)
+        consumer_parts_list = [
+            re.findall('[A-Z0-9][a-z]*', cleaned_description),
+            re.findall('[A-Z0-9][a-z]*', consumer)
+        ]
+        match_condition = (lambda n: (
                 pd.Series([(status_part.lower() == compare_part.lower()) for status_part in
-                           status_parts for compare_part in compare_list]).sum() >= n))
-        if ("Light" in status and "Light" in consumer) or not ("Light" in status or "Light" in consumer):
-            if ("Plug" in status and "Plug" in consumer) or not ("Plug" in status or "Plug" in consumer):
-                for i in range(1, len(description_parts) + 1)[::-1]:
-                    if match_condition(description_parts, i):
-                        matches_dict[status_orig] = {
-                            "consumer": consumer_orig,
-                            "match_words": ["".join(status_parts), "".join(description_parts)]
+                           status_parts for compare_part in consumer_parts]).sum() >= n))
+        # for i in range(1, max([len(lst) for lst in status_parts_list] + [len(lst) for lst in
+        #                                                                  consumer_parts_list]) + 1)[::-1]:
+        for status_parts in status_parts_list:
+            for consumer_parts in consumer_parts_list:
+                if ((('Light' in status_parts_list[1] and 'Light' in consumer_parts_list[1]) or (
+                        'Plug' in status_parts_list[1] and 'Plug' in consumer_parts_list[1])) or (
+                        ('Light' not in status_parts_list[1] and 'Light' not in consumer_parts_list[1] and
+                        'Plug' not in status_parts_list[1] and 'Plug' not in consumer_parts_list[1]))):
+                    # if match_condition(i):
+                    matches_dict[status_orig].update({
+                        # str(len(matches_dict[status_orig].keys())): {
+                        str(len(set(consumer_parts) - set(status_parts))): {
+                            'consumer': consumer_orig,
+                            'match_words': [''.join(status_parts), ''.join(consumer_parts)]
                         }
-                        included = True
-                        break
-                    elif match_condition(consumer_parts, i):
-                        matches_dict[status_orig] = {
-                            "consumer": consumer_orig,
-                            "match_words": ["".join(status_parts), "".join(consumer_parts)]
-                        }
-                        included = True
-                        break
-            for i in range(1, len(description_parts) + 1)[::-1]:
-                    if match_condition(description_parts, i):
-                        matches_dict[status_orig] = {
-                            "consumer": consumer_orig,
-                            "match_words": ["".join(status_parts), "".join(description_parts)]
-                        }
-                        included = True
-                        break
-                    elif match_condition(consumer_parts, i):
-                        matches_dict[status_orig] = {
-                            "consumer": consumer_orig,
-                            "match_words": ["".join(status_parts), "".join(consumer_parts)]
-                        }
-                        included = True
-                        break
-        if included:
-            break
+                    })
+        #             included = True
+        #             break
+        #         if included:
+        #             break
+        #     if included:
+        #         break
+        # if included:
+        #     break
     return matches_dict
-#
-#
+
+
+def distance_matcher(status_parts_list, other_dict, sub_subsystems):
+    for consumer_orig, consumer_row in meta.loc[
+        lambda self: consumer_condition(self, sub_subsystems) & location_condition(
+            self)].iterrows():
+        consumer = replace_short_remove_fill(consumer_orig.split('_')[-1])
+        joined_description = ''.join(part.capitalize() for part in consumer_row['Description'].split(' '))
+        cleaned_description = replace_short_remove_fill(joined_description)
+        consumer_parts_list = [
+            re.findall('[A-Z0-9][a-z]*', cleaned_description),
+            re.findall('[A-Z0-9][a-z]*', consumer)
+        ]
+        if ('Light' in status and 'Light' in consumer) or not ('Light' in status or 'Light' in consumer):
+            for status_parts in status_parts_list:
+                for consumer_parts in consumer_parts_list:
+                    other_dict[status_orig].update({
+                        str(len(other_dict[status_orig])): {
+                            'consumer': consumer_orig,
+                            'match_words': [''.join(status_parts), ''.join(consumer_parts)],
+                            'score': pd.Series([
+                                SequenceMatcher(a=status_parts, b=consumer_parts).ratio()]).mean()
+                            # for status_part in status_parts
+                            # for consumer_part in consumer_parts]).mean()
+                        }
+                    })
+    return other_dict
+
+
 for hourly in [False]:  # True, False
     for year in [1]:  # 1, 2
-        time_base = "hour" if hourly else "minute"
+        time_base = 'hour' if hourly else 'minute'
         meta = Db.load_data(meta=True, year=year, consumption=False)
 
-        meta.set_index("Unnamed: 0", inplace=True)
+        meta.set_index('Unnamed: 0', inplace=True)
 
-        status_condition = (lambda self: (self["Units"] == "Binary Status") &
-                                         (self["Subsystem"] == "Loads") &
-                                         (~self.index.str.contains("SensHeat")))
+        status_condition = (lambda self: (self['Units'] == 'Binary Status') &
+                                         (~self.index.str.contains('SensHeat')) &
+                                         (self['Subsystem'] == 'Loads'))
         status_attributes = meta.loc[status_condition]
-        consumer_condition = (lambda self, subsystems: (self["Units"] == "W") &
-                                                       (self["Subsystem"].isin(subsystems)) &
-                                                       (~self.index.isin(
-                                                           ["Elec_PowerSumpPump", "Load_ClothesWasherPowerWithStandby",
-                                                            "Load_DryerPowerTotal", "Elec_PowerDryer1of2",
-                                                            "Elec_PowerDryer2of2"])) &
-                                                       (~self["Description"].str.contains("emulator")))
+        consumer_condition = (lambda self, subsystems:
+                              (self['Subsystem'].isin(subsystems)) &
+                              (~self['Description'].str.contains('emulator')) &
+                              (self['Units'] == 'W'))
 
         matches_dict = {}
         other_dict = {}
         for status_orig, status_row in status_attributes.iterrows():
-            status_room = status_row["Measurement_Location"]
-            status = replace_short_remove_fill(status_orig)
+            status = replace_short_remove_fill(status_orig.split('_')[-1])
+            joined_description = ''.join(part.capitalize() for part in status_row['Description'].split(' '))
+            cleaned_description = replace_short_remove_fill(joined_description)
+            status_room = status_row['Measurement_Location']
 
             location_condition = (
-                lambda self: self["Measurement_Location"].isin([status_row["Measurement_Location"], "Multiple"]))
+                lambda self: self['Measurement_Location'].isin([status_row['Measurement_Location'], 'Multiple']))
 
-            status_parts = re.findall("[A-Z0-9][a-z]*", status.split("_")[-1])
+            status_parts_list = [
+                re.findall('[A-Z0-9][a-z]*', cleaned_description),
+                re.findall('[A-Z0-9][a-z]*', status)
+            ]
 
-            matches_dict.update(direct_matcher(status_parts, matches_dict, ["Electrical", "Lighting"]))
+            matches_dict[status_orig] = matches_dict.get(status_orig, {})
+            matches_dict.update(
+                direct_matcher(status_parts_list, matches_dict, ['Electrical', 'Lighting', 'Loads', 'Load']))
 
-            if status_orig not in matches_dict.keys():
-                matches_dict.update(direct_matcher(status_parts, matches_dict, ["Loads", "Load"]))
-#
-#             # other_dict[status_orig] = {}
-#             # for consumer_orig in consumers.index:
-#             #     consumer = consumer_orig
-#             #     if "MBR" in consumer:
-#             #         consumer = consumer.replace("MBR", "Masterbedroom")
-#             #     elif "MBA" in consumer:
-#             #         consumer = consumer.replace("MBA", "Masterbathroom")
-#             #     elif "BR" in consumer:
-#             #         consumer = consumer.replace("BR", "Bedroom")
-#             #     elif "BA" in consumer:
-#             #         consumer = consumer.replace("BA", "Bathroom")
-#             #     elif "LR" in consumer:
-#             #         consumer = consumer.replace("LR", "Livingroom")
-#             #     consumer_parts = re.findall("[A-Z]+[a-z0-9]*", consumer.split("_")[-1])
-#             #     consumer_parts.remove("Power")
-#             #     if status_room == consumer_room or consumer_room == "Multiple":
-#             #         if not ("Light" in status or "Light" in consumer):
-#             #                 other_dict[status_orig].update({
-#             #                     str(pd.Series(
-#             #                             SequenceMatcher(a=status_part, b=consumer_part).ratio()
-#             #                             for status_part in status_parts
-#             #                             for consumer_part in consumer_parts).mean()
-#             #                     ): ["".join(status_parts), "".join(consumer_parts), consumer_orig]
-#             #                 })
-#
+            # if status_orig not in matches_dict.keys():
+            #     matches_dict.update(direct_matcher(status_parts_list, matches_dict, ['Loads', 'Load']))
+
+            other_dict[status_orig] = other_dict.get(status_orig, {})
+            other_dict.update(
+                distance_matcher(status_parts_list, other_dict, ['Electrical', 'Lighting', 'Loads', 'Load']))
+
         for key, value in matches_dict.items():
             print(key)
-            print("  ", value)
+            print('  ', value)
+            print('  ', value[min(value.keys())])
         print(len(matches_dict))
 
         missing_statuses = [status for status in status_attributes.index if status not in matches_dict.keys()]
         print(missing_statuses)
         print(len(missing_statuses))
-#         #     print(key)
-#         #     print("  ", value[str(max(value.keys()))])
-#         # for s_key, s_value in value.items():
-#         #     print("  ", s_value)
-#         #     print("    ", s_key)
+
+        # for key, value in other_dict.items():
+        #     print(key)
+        #     # print('  ', value[str(max(value.keys()))])
+        #     for s_key, s_value in value.items():
+        #         print('  ', s_key)
+        #         print('    ', s_value)
