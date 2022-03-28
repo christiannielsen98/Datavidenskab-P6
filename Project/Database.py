@@ -1,9 +1,8 @@
 import configparser
 import os
 import shutil
-from pickle import dump, load
 
-from pandas import read_csv
+from pandas import read_csv, read_pickle
 
 from project_root import project_path
 
@@ -35,8 +34,10 @@ class __Database:
         """
         for file in os.listdir(self.get_data_path()):
             if not os.path.isdir(self.get_data_path(file)):
-                shutil.move(self.get_data_path(file),
-                            self.get_save_file_directory(file))
+                if file in os.listdir('/'.join(self.get_save_file_directory(file).split('/')[:-1])):
+                    os.remove(self.get_save_file_directory(file))
+                    shutil.move(self.get_data_path(file),
+                                self.get_save_file_directory(file))
 
     def __ensure_directory(self, subdirectory):
         """
@@ -72,8 +73,8 @@ class __Database:
         """
         self.__move_files()
         for new_file in self.__find_new_files():
-            with open(file=self.get_save_file_directory(f"{new_file}.pkl"), mode="wb") as pkl_file:
-                dump(obj=read_csv(self.get_save_file_directory(f"{new_file}.csv")), file=pkl_file)
+            read_csv(self.get_save_file_directory(f"{new_file}.csv")).to_pickle(
+                self.get_save_file_directory(f"{new_file}.pkl"))
 
     @staticmethod
     def split_string(text):
@@ -144,22 +145,17 @@ class __Database:
         :return:
         """
         time_base = "hour" if hourly else "minute"
-        data = []
         try:
+            data = []
             if consumption:
-                with open(
-                        file=self.get_save_file_directory(f"All-Subsystems-{time_base}-year{year}.pkl"),
-                        mode="rb") as pkl_file:
-                    data.append(load(pkl_file))
+                data.append(read_pickle(self.get_save_file_directory(f"All-Subsystems-{time_base}-year{year}.pkl")))
             if meta:
-                with open(
-                        file=self.get_save_file_directory(f"Metadata-{time_base}-year{year}.pkl"), mode="rb") as pkl_file:
-                    data.append(load(pkl_file))
+                data.append(
+                    read_pickle(self.get_save_file_directory(f"Metadata-{time_base}-year{year}.pkl")))
             if production:
-                with open(
-                        file=self.get_save_file_directory(f"Production_year{year}.pkl"), mode="rb") as pkl_file:
-                    data.append(load(pkl_file))
+                data.append(read_pickle(self.get_save_file_directory(f"Production_year{year}.pkl")))
         except:
+            data = []
             if consumption:
                 data.append(read_csv(self.get_save_file_directory(f"All-Subsystems-{time_base}-year{year}.csv")))
             if meta:
@@ -171,12 +167,11 @@ class __Database:
         return data
 
     def pickle_dataframe(self, dataframe, filename):
-        with open(self.get_save_file_directory(filename=filename), mode="wb")as pkl_file:
-            dump(obj=dataframe, file=pkl_file)
-
+        dataframe.to_pickle(self.get_data_path(filename))
+        self.__move_files()
 
 
 Db = __Database()
 
 if __name__ == "__main__":
-    print(Db.load_data())
+    print(Db.load_data(meta=True, consumption=False))

@@ -98,8 +98,8 @@ def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
     # fig.show()
 
 
-heatmap_generator(year1_hourly, meta, x="HourOfDay", y="DayOfWeek")
-heatmap_generator(year1_hourly, meta, x="HourOfDay", y="MonthOfYear")
+# heatmap_generator(year1_hourly, meta, x="HourOfDay", y="DayOfWeek")
+# heatmap_generator(year1_hourly, meta, x="HourOfDay", y="MonthOfYear")
 
 
 # heatmap_generator(year1_hourly, meta, x="WeekdayOfTimestamp", y="MonthOfYear")
@@ -162,15 +162,15 @@ def average_consumption_production_line(df, meta_data):
         xaxis_nticks=30,
         yaxis_nticks=20,
         font=dict(
-            size=20
+            size=16
         ),
     )
     fig.update_xaxes(title_text="Hour of day")
     fig.update_yaxes(title_text="Energy (wH)")
 
-    fig.write_html(Db.get_save_file_directory(f"average_consumption_production_line.html"))
-    # fig.show()
+    # fig.write_html(Db.get_save_file_directory(f"average_consumption_production_line.html"))
+    fig.show()
 
 
 average_consumption_production_line(df=year1_hourly, meta_data=meta)
-# average_consumption_production_line(df=year2_hourly, meta_data=meta)
+average_consumption_production_line(df=year2_hourly, meta_data=meta)

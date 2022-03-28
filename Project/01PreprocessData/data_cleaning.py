@@ -45,8 +45,8 @@ for hourly in [True, False]:
         meta = meta.loc[(house != house.shift(1)).sum(0) > 1]
         house = house[['Timestamp'] + meta.index.tolist()]
 
-        house['Timestamp'] = house['Timestamp'].str.split('-0[45]:00', expand=True)[0]
-        house['Timestamp'] = pd.to_datetime(house['Timestamp'], format='%Y-%m-%d %H:%M:%S')
+        # house['Timestamp'] = house['Timestamp'].str.split('-0[45]:00', expand=True)[0]
+        house['Timestamp'] = pd.to_datetime(house['Timestamp'], format='%Y-%m-%d %H:%M:%S%z')
 
         house['Load_StatusClothesWasher'] = np.where(house['Elec_PowerClothesWasher'] > 0, 1, 0)
         house['Load_StatusDryerPowerTotal'] = np.where(house['Load_DryerPowerTotal'] > 0, 1, 0)
