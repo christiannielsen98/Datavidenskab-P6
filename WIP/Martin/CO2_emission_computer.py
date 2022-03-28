@@ -95,6 +95,6 @@ production["CO2(Grams)/kWh"] = production_source_df["CO2(Grams)/kWh"].T.values.d
 print(production.head())
 Db.pickle_dataframe(production, "Production_year1.pkl")
 
-# year1, production = Db.load_data(year=1, production=True, meta=False)
-# fig = px.line(production, x=production.index, y="CO2(Grams)/kWh")
-# fig.show()
+year1, production = Db.load_data(year=1, production=True, meta=False)
+fig = px.line(production, x=production.index, y="CO2(Grams)/kWh")
+fig.show()
