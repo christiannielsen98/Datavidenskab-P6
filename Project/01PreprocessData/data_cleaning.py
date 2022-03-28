@@ -83,8 +83,9 @@ for hourly in [True, False]:
 
         for subsystem, status_dict in matches_dict.items():
             for status, consumer_dict in status_dict.items():
-                meta.loc[status, subsystem + '_Match'] = consumer_dict['consumer']
-                meta.loc[consumer_dict['consumer'], 'Status_Match'] = status
+                if consumer_dict is not None:
+                    meta.loc[status, subsystem + '_Match'] = consumer_dict['consumer']
+                    meta.loc[consumer_dict['consumer'], 'Status_Match'] = status
 
         Db.pickle_dataframe(dataframe=meta, filename=f'Metadata-{time_base}-year{year}.pkl')
         Db.pickle_dataframe(dataframe=house, filename=f'All-Subsystems-{time_base}-year{year}.pkl')
