@@ -42,7 +42,7 @@ def transform_for_TPM(year):
     appliance_list = meta_data.index.tolist()
     # Group room lights
     for new_col, old_cols in light_location_dict(meta_data).items():
-        data[new_col] = data[old_cols].max()
+        data[new_col] = data[old_cols].max(1)
         data.drop(old_cols, axis=1, inplace=True)
         appliance_list.append(new_col)
         for old_col in old_cols:
@@ -67,10 +67,9 @@ def transform_for_TPM(year):
                     continue
 
     csv_data = pd.DataFrame(tmp_list).sort_values(by=['day', 'start']).reset_index(drop=True)
-    csv_data.to_csv(path_or_buf=Db.get_project_path(f'Project/04TPMAlgorithm/TPM/Data/NZERTF_year{year}.csv'),
+    csv_data.to_csv(path_or_buf=Db.get_project_path(f'Project/_04TPMAlgorithm/TPM/Data/NZERTF_year{year}.csv'),
                     header=False,
                     index=False)
-
 
 if __name__ == '__main__':
     for year in [1, 2]:
