@@ -67,7 +67,7 @@ def transform_for_TPM(year):
                     continue
 
     csv_data = pd.DataFrame(tmp_list).sort_values(by=['day', 'start']).reset_index(drop=True)
-    csv_data.to_csv(path_or_buf=Db.get_project_path(f'Project/04TPMAlgorithm/TPM/Data/NZERTF_year{year}'),
+    csv_data.to_csv(path_or_buf=Db.get_project_path(f'Project/04TPMAlgorithm/TPM/Data/NZERTF_year{year}.csv'),
                     header=False,
                     index=False)
 
