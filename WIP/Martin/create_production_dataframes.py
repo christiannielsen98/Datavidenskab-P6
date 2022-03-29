@@ -69,7 +69,7 @@ def create_production_dataframe(dataframe, filename):
 def find_co2_emissions(production):
     production_source_df = DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(Grams)/BTU"])
 
-    production_source_df["EnergySource"] = production.columns.values½
+    production_source_df["EnergySource"] = production.columns.values
 
     col_dict = {
         "Renewable": {
