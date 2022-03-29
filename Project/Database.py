@@ -1,6 +1,7 @@
 import configparser
 import os
 import shutil
+import re
 
 from pandas import read_csv, read_pickle
 
@@ -34,7 +35,7 @@ class __Database:
         """
         for file in os.listdir(self.get_data_path()):
             if not os.path.isdir(self.get_data_path(file)):
-                if file in os.listdir('/'.join(self.get_save_file_directory(file).split('/')[:-1])):
+                if file in os.listdir('/'.join(re.findall('[^/\\\\]+', self.get_save_file_directory(file))[:-1])):
                     os.remove(self.get_save_file_directory(file))
                     shutil.move(self.get_data_path(file),
                                 self.get_save_file_directory(file))
