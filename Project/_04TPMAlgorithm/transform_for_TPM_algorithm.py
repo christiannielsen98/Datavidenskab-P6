@@ -4,7 +4,8 @@ from Project.Database import Db
 
 status_condition = (lambda self: (
         (self["Subsystem"] == "Loads") &
-        (self["Parameter"] == "Status_OnOff")
+        (self["Parameter"] == "Status_OnOff") &
+        (~self.index.str.contains("StatusLatentload"))
 ))
 
 
