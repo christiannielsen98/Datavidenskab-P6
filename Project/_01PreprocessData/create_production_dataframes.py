@@ -143,8 +143,9 @@ def find_co2_emissions(production):
     return production
 
 
-data_dict_list = [{"dataframe": Db.load_data(hourly=True), "filename": "Production_year1.pkl"},
-                  {"dataframe": Db.load_data(hourly=True, year=2), "filename": "Production_year2.pkl"}]
+if __name__ == '__main__':
+    data_dict_list = [{"dataframe": Db.load_data(hourly=True), "filename": "Production_year1.pkl"},
+                      {"dataframe": Db.load_data(hourly=True, year=2), "filename": "Production_year2.pkl"}]
 
-for data_dict in data_dict_list:
-    create_production_dataframe(**data_dict)
+    for data_dict in data_dict_list:
+        create_production_dataframe(**data_dict)
