@@ -24,7 +24,7 @@ def json_to_dataframe(year, level):
             level_df.loc[level_df.shape[0]] = i
         level_df.rename(columns={'name_node': 'pattern'}, inplace=True)
 
-    level_df = filter_rule_indexes(level_df)
+    # level_df = filter_rule_indexes(level_df)
 
     return level_df
 
@@ -71,6 +71,43 @@ def filter_rule_indexes(dataframe):
                 else:
                     dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)][:-4]
 
-    dataframe.dropna(inplace=True, axis=0)
-    dataframe.reset_index(inplace=True, drop=True)
+    # dataframe.dropna(inplace=True, axis=1)
+    # dataframe.reset_index(inplace=True, drop=True)
     return dataframe
+
+
+def start_end_times_of_rules(dictionary):
+    list = []
+    too_deep = False
+    for values in dictionary.values():
+        if not too_deep:
+            for i in values:
+                if isinstance(i, int):
+                    too_deep = True
+                    break
+                start_time = int(i[0:1][0][0:1][0].split(":")[0].split(" ")[1])
+                end_time = int(i[1:2][0][1:2][0].split(":")[0].split(" ")[1])
+                list.append([start_time] + [end_time])
+        else:
+            start_time = int(values[0:1][0][0:1][0].split(":")[0].split(" ")[1])
+            end_time = int(values[1:2][0][1:2][0].split(":")[0].split(" ")[1])
+            list.append([start_time] + [end_time])
+    temp_df = pd.DataFrame(list, columns=['start_time', 'end_time'])
+    start_end_times_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
+    return start_end_times_df
+
+
+def SE_time_df(dataframe):
+    rule_dict = {}
+    for index, row in dataframe.iterrows():
+        df = pd.DataFrame({'InternalUtility': [0 for _ in range(24)]})
+        start_end_df = start_end_times_of_rules(row["time"])
+        for end_index, start_end in start_end_df.iterrows():
+            for hour in range(start_end['start_time'], start_end['end_time'] + 1):
+                df['InternalUtility'][hour] = df['InternalUtility'][hour] + start_end['size']
+        rule_dict[row['pattern']] = df.copy()
+    return rule_dict
+
+
+def redundancy_filter_tool(dataframe, regex_str='MB[\w]*>[\w]*MB'):
+    return dataframe.loc[(dataframe['pattern'].str.findall(regex_str).map(len) > 0)]
