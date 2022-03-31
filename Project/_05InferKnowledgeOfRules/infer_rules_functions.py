@@ -11,7 +11,7 @@ from Project.Database import Db
 
 def json_to_dataframe(year, level):
     json_file = json.load(
-        open(f"Project/_04TPMAlgorithm/TPM/output/NZERTF_year{year}_minsup0.14_minconf_0.5/level{level}.json"))
+        open(Db.get_save_file_directory(f"output/NZERTF_year{year}_minsup0.14_minconf_0.5/level{level}.json")))
     if "," in json_file[0]["name_node"]:
         level_df = pd.DataFrame(columns=["pattern", "supp", "conf", "time"])
         for i in json_file:

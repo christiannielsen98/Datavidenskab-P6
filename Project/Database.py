@@ -35,10 +35,11 @@ class __Database:
         """
         for file in os.listdir(self.get_data_path()):
             if not os.path.isdir(self.get_data_path(file)):
-                if file in os.listdir(''.join(re.findall('[/\\\\]*[a-zA-Z0-9-\. ]+', self.get_save_file_directory(file))[:-1])):
-                    os.remove(self.get_save_file_directory(file))
-                    shutil.move(self.get_data_path(file),
-                                self.get_save_file_directory(file))
+                if file.split('.')[-1] != 'DS_Store':
+                    if file in os.listdir(''.join(re.findall('[/\\\\]*[a-zA-Z0-9-\. ]+', self.get_save_file_directory(file))[:-1])):
+                        os.remove(self.get_save_file_directory(file))
+                        shutil.move(self.get_data_path(file),
+                                    self.get_save_file_directory(file))
 
     def __ensure_directory(self, subdirectory):
         """
