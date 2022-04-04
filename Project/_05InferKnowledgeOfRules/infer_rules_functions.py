@@ -15,6 +15,7 @@ def json_to_dataframe(year, level):
         open(Db.get_save_file_directory(f"output/NZERTF_year{year}_minsup0.14_minconf_0.5/level{level}.json")))
     if "," in json_file[0]["name_node"]:
         level_df = pd.DataFrame(columns=["pattern", "supp", "conf", "time"])
+        level1=False
         for i in json_file:
             for j in i["patterns"]:
                 level_df.loc[level_df.shape[0]] = j
@@ -23,8 +24,9 @@ def json_to_dataframe(year, level):
         for i in json_file:
             level_df.loc[level_df.shape[0]] = i
         level_df.rename(columns={'name_node': 'pattern'}, inplace=True)
+        level1=True
 
-    level_df = filter_rule_indexes(level_df)
+    level_df = filter_rule_indexes(level_df, level1)
 
     return level_df
 
@@ -33,12 +35,13 @@ def json_to_dataframe(year, level):
 
 
 # Filter fules
-def filter_rule_indexes(dataframe):
+def filter_rule_indexes(dataframe, level1):
     meta = Db.load_data(meta=True, consumption=False, hourly=False)
     level_3_check = len(re.findall('\*', dataframe.loc[0, 'pattern'])) > 0
     rule_type = ['app_app_app', 'psn_app_app', 'psn_psn_app']
     dataframe['rule'] = pd.NA
     dataframe['multi_floor'] = pd.NA
+    dataframe['floor'] = pd.NA
 
     # filter follows rules in dataframe for level3: max 1 and level2: 0
     if level_3_check:
@@ -56,20 +59,25 @@ def filter_rule_indexes(dataframe):
             try:
                 tmp_floor_set.add(meta.loc[col, 'Measurement_Floor'])
             except:
-                tmp_floor_set.add(light_location_dict(meta)[col][0])
+                tmp_floor_set.add(meta.loc[light_location_dict(meta)[col][0], 'Measurement_Floor'])
 
-        if sum(appliance_check_list) >= 1:
-            dataframe.loc[index, 'multi_floor'] = {'1stFloor', '2ndFloor'} == tmp_floor_set
+        dataframe.loc[index, 'multi_floor'] = {'1stFloor', '2ndFloor'} == tmp_floor_set
+        if sum(appliance_check_list) >= 1 and not level1:
             if {'1stFloor', '2ndFloor'} == tmp_floor_set:
+                dataframe.loc[index, 'floor'] = 'multi'
                 if level_3_check:
                     dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)]
                 else:
                     dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)][:-4]
             else:
+                dataframe.loc[index, 'floor'] = list(tmp_floor_set)[0]
                 if level_3_check:
                     dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)]
                 else:
                     dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)][:-4]
+        elif level1:
+            dataframe.loc[index, 'floor'] = list(tmp_floor_set)[0]
+            dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)][:-8]
 
     dataframe.dropna(inplace=True, axis=0)
     dataframe.reset_index(inplace=True, drop=True)

@@ -60,6 +60,7 @@ for hourly in [True, False]:
             'Aggregation_Method': 'Average',
             'min_value': 0,
             'max_value': 1,
+            'Measurement_Floor': '1stFloor'
         }
         meta.loc['Load_StatusDryerPowerTotal'] = {
             'Subsystem': 'Loads',
@@ -70,6 +71,7 @@ for hourly in [True, False]:
             'Aggregation_Method': 'Average',
             'min_value': 0,
             'max_value': 1,
+            'Measurement_Floor': '1stFloor'
         }
 
         for col in ['Subsystem', 'Measurement_Location', 'Parameter', 'Units']:

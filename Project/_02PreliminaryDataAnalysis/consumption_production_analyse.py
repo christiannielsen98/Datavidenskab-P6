@@ -11,20 +11,20 @@ def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
     consumption_condition = (lambda self: (
             (self["Units"] == "W") &
             self["Description"].str.contains("power consumption" or "used") &
-            ~(self["Unnamed: 0"] == "Elec_PowerMicrowave") &
-            ~(self["Unnamed: 0"] == "Elec_PowerRefrigerator") &
-            ~(self["Unnamed: 0"] == "Elec_PowerClothesWasher") &
-            ~self["Unnamed: 0"].str.contains("Elec_[\w]+HVAC") &
-            (~self["Unnamed: 0"].str.contains("DHW_") |
-             self["Unnamed: 0"].str.contains("DHW_[\w]+Total")) &
-            (~self["Unnamed: 0"].str.contains("Load_") |
-             ~self["Unnamed: 0"].str.contains("Load_Microwave") &
-             self["Unnamed: 0"].str.contains("Load_[\w]+Standby"))))
+            ~(self.index == "Elec_PowerMicrowave") &
+            ~(self.index == "Elec_PowerRefrigerator") &
+            ~(self.index == "Elec_PowerClothesWasher") &
+            ~self.index.str.contains("Elec_[\w]+HVAC") &
+            (~self.index.str.contains("DHW_") |
+             self.index.str.contains("DHW_[\w]+Total")) &
+            (~self.index.str.contains("Load_") |
+             ~self.index.str.contains("Load_Microwave") &
+             self.index.str.contains("Load_[\w]+Standby"))))
 
-    consumption = meta_data.loc[consumption_condition]["Unnamed: 0"].tolist()
+    consumption = meta_data.loc[consumption_condition].index.tolist()
 
     production = meta_data.loc[(meta_data['Parameter'] == "Power_Electrical") & (
-        meta_data["Description"].str.contains("produced"))]["Unnamed: 0"].tolist()
+        meta_data["Description"].str.contains("produced"))].index.tolist()
 
     year1_consumption_production = df[["Timestamp"] + consumption + production].copy()
 
@@ -109,20 +109,20 @@ def average_consumption_production_line(df, meta_data):
     consumption_condition = (lambda self: (
             (self["Units"] == "W") &
             self["Description"].str.contains("power consumption" or "used") &
-            ~(self["Unnamed: 0"] == "Elec_PowerMicrowave") &
-            ~(self["Unnamed: 0"] == "Elec_PowerRefrigerator") &
-            ~(self["Unnamed: 0"] == "Elec_PowerClothesWasher") &
-            ~self["Unnamed: 0"].str.contains("Elec_[\w]+HVAC") &
-            (~self["Unnamed: 0"].str.contains("DHW_") |
-             self["Unnamed: 0"].str.contains("DHW_[\w]+Total")) &
-            (~self["Unnamed: 0"].str.contains("Load_") |
-             ~self["Unnamed: 0"].str.contains("Load_Microwave") &
-             self["Unnamed: 0"].str.contains("Load_[\w]+Standby"))))
+            ~(self.index == "Elec_PowerMicrowave") &
+            ~(self.index == "Elec_PowerRefrigerator") &
+            ~(self.index == "Elec_PowerClothesWasher") &
+            ~self.index.str.contains("Elec_[\w]+HVAC") &
+            (~self.index.str.contains("DHW_") |
+             self.index.str.contains("DHW_[\w]+Total")) &
+            (~self.index.str.contains("Load_") |
+             ~self.index.str.contains("Load_Microwave") &
+             self.index.str.contains("Load_[\w]+Standby"))))
 
-    consumption = meta_data.loc[consumption_condition]["Unnamed: 0"].tolist()
+    consumption = meta_data.loc[consumption_condition].index.tolist()
 
     production = meta_data.loc[(meta_data['Parameter'] == "Power_Electrical") & (
-        meta_data["Description"].str.contains("produced"))]["Unnamed: 0"].tolist()
+        meta_data["Description"].str.contains("produced"))].index.tolist()
 
     year1_consumption_production = df[["Timestamp"] + consumption + production].copy()
 
