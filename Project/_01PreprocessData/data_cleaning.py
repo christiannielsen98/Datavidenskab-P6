@@ -16,7 +16,7 @@ room_floor_dict = {
     'Bedroom4': '1stFloor',
     'Breezeway': '1stFloor',
     'DiningRoom': '1stFloor',
-    'EntryHallway': '2ndFloor',
+    'EntryHallway': '1stFloor',
     'Kitchen': '1stFloor',
     'LivingRoom': '1stFloor',
     'MasterBath': '2ndFloor',
