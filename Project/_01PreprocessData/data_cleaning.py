@@ -50,6 +50,7 @@ for hourly in [True, False]:
 
         house['Load_StatusClothesWasher'] = np.where(house['Elec_PowerClothesWasher'] > 0, 1, 0)
         house['Load_StatusDryerPowerTotal'] = np.where(house['Load_DryerPowerTotal'] > 0, 1, 0)
+        house['DHW_StatusHeatPumpWaterHeaterPowerTotal'] = np.where(house['DHW_HeatPumpWaterHeaterPowerTotal'] > 6.92, 1, 0)
 
         meta.loc['Load_StatusClothesWasher'] = {
             'Subsystem': 'Loads',
@@ -73,6 +74,18 @@ for hourly in [True, False]:
             'max_value': 1,
             'Measurement_Floor': '1stFloor'
         }
+        meta.loc['DHW_StatusHeatPumpWaterHeaterPowerTotal'] = {
+            'Subsystem': 'DHW',
+            'Measurement_Location': 'Basement',
+            'Parameter': 'Status_OnOff',
+            'Description': 'Number to indicate whether heat pump water heater is activated (1: Yes, O: No)',
+            'Units': 'Binary Status',
+            'Aggregation_Method': 'Average',
+            'min_value': 0,
+            'max_value': 1,
+            'Measurement_Floor': 'Basement'
+        }
+
 
         for col in ['Subsystem', 'Measurement_Location', 'Parameter', 'Units']:
             meta[col] = meta[col].str.replace(' ', '')
