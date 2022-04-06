@@ -31,7 +31,7 @@ room_floor_dict = {
 for hourly in [True, False]:
     for year in [1, 2]:
         time_base = 'hour' if hourly else 'minute'
-        house, meta = Db.load_data(hourly=hourly, meta=True, year=year)
+        house, meta = Db.load_data(hourly=hourly, meta=True, year=year, from_csv=True)
 
         meta.set_index('Unnamed: 0', inplace=True)
         meta = meta.loc[~((~pd.isnull(house)).sum(0) <= (house.shape[0] / 2))]
@@ -75,7 +75,7 @@ for hourly in [True, False]:
             'Measurement_Floor': '1stFloor'
         }
         meta.loc['DHW_StatusHeatPumpWaterHeaterPowerTotal'] = {
-            'Subsystem': 'DHW',
+            'Subsystem': 'Loads',
             'Measurement_Location': 'Basement',
             'Parameter': 'Status_OnOff',
             'Description': 'Number to indicate whether heat pump water heater is activated (1: Yes, O: No)',

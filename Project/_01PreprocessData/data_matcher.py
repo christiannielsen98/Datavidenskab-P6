@@ -113,7 +113,7 @@ def find_status_consumer_match(meta):
     ]
 
     status_condition = (lambda self:
-                        (self.index.str.contains("Load")) &
+                        # (self.index.str.contains("Load")) &
                         # (self['Subsystem'] == 'Loads') &
                         # (~self.index.str.contains('SensHeat')) &
                         (self['Units'] == 'BinaryStatus'))
@@ -144,7 +144,7 @@ def find_status_consumer_match(meta):
             re.findall('[A-Z0-9][a-z]*', status)
         )
 
-        for sub_system in ['Load', 'Elec']:
+        for sub_system in ['Load', 'Elec', 'DHW']:
             included = False
             matches_dict[sub_system] = matches_dict.get(sub_system, {})
             matches_dict[sub_system][status_orig] = matches_dict[sub_system].get(status_orig, None)
