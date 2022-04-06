@@ -26,7 +26,7 @@ def json_to_dataframe(year, level):
         level_df.rename(columns={'name_node': 'pattern'}, inplace=True)
         level1=True
 
-    level_df = filter_rule_indexes(level_df, level1)
+    # level_df = filter_rule_indexes(level_df, level1)
 
     return level_df
 
