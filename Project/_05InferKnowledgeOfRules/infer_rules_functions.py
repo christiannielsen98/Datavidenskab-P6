@@ -141,8 +141,10 @@ def SE_time_df(dataframe):
                 df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']
         for day_hours in day_hours_list:
             df.loc[day_hours, 'AbsSupport'] = df.loc[day_hours, 'AbsSupport'] + 1
-        df['RelSupport'] = df['TotalAbsSupport'] / max_day
-        df['Utility'] = df['TotalAbsSupport'] * df['RelSupport']
+        df['EventCount'] = sum([len(events) for events in row['time'].values()])
+        df['ExternalUtility'] = row['supp']
+        df['RelSupport'] = df['AbsSupport'] / max_day
+        df['TimeAssociation'] = df['TotalAbsSupport'] / df['EventCount']
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
 
