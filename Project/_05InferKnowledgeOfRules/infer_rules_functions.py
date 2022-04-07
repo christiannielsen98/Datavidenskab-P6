@@ -85,20 +85,47 @@ def filter_rule_indexes(dataframe, level1):
 
 
 def start_end_times_of_rules(dictionary):
-    list = []
-    for values in dictionary.values():
-        for i in values:
+    start_end_list = []
+    start_end_set_list = []
+    for day in dictionary.values():
+        start_end_set = set()
+        for event in day:
             try:
-                start_time = int(i[0:1][0][0:1][0].split(":")[0].split(" ")[1])
-                end_time = int(i[1:2][0][1:2][0].split(":")[0].split(" ")[1])
-                list.append([start_time] + [end_time])
+                event_start_times = []
+                event_end_times = []
+                for appliance in event:
+                    event_start_times.append(appliance[0])
+                    event_end_times.append(appliance[1])
+                start_time = int(min(event_start_times).split(":")[0].split(" ")[1])
+                end_time = int(max(event_end_times).split(":")[0].split(" ")[1])
+                start_end_list.append([start_time] + [end_time])
+                start_end_set.update({hour for hour in range(start_time, end_time + 1)})
             except:
-                start_time = int(i[0].split(":")[0].split(" ")[1])
-                end_time = int(i[1].split(":")[0].split(" ")[1])
-                list.append([start_time] + [end_time])
-    temp_df = pd.DataFrame(list, columns=['start_time', 'end_time'])
+                start_time = int(event[0].split(":")[0].split(" ")[1])
+                end_time = int(event[1].split(":")[0].split(" ")[1])
+                start_end_list.append([start_time] + [end_time])
+                start_end_set.update({hour for hour in range(start_time, end_time + 1)})
+        start_end_set_list.append(list(start_end_set))
+
+    temp_df = pd.DataFrame(start_end_list, columns=['start_time', 'end_time'])
     start_end_times_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
-    return start_end_times_df
+    return start_end_times_df, start_end_set_list
+
+# def start_end_times_of_rules(dictionary):
+#     list = []
+#     for events in dictionary.values():
+#         for event in events:
+#             event_start_times = []
+#             event_end_times = []
+#             for appliance in event:
+#                 event_start_times.append(appliance[0])
+#                 event_end_times.append(appliance[1])
+#             start_time = int(min(event_start_times).split(":")[0].split(" ")[1])
+#             end_time = int(max(event_end_times).split(":")[0].split(" ")[1])
+#             list.append([start_time] + [end_time])
+#     temp_df = pd.DataFrame(list, columns = ['start_time', 'end_time'])
+#     start_end_times_df = temp_df.groupby(temp_df.columns.tolist(),as_index=False).size()
+#     return start_end_times_df
 
 
 def SE_time_df(dataframe):
@@ -107,13 +134,15 @@ def SE_time_df(dataframe):
     for index, row in dataframe.iterrows():
         max_day = max(max_day, max(int(key) + 1 for key in row["time"].keys()))
     for index, row in dataframe.iterrows():
-        df = pd.DataFrame({'AbsSupport': [0 for _ in range(24)]})
-        start_end_df = start_end_times_of_rules(row["time"])
+        df = pd.DataFrame({'TotalAbsSupport': [0 for _ in range(24)], 'AbsSupport': [0 for _ in range(24)]})
+        start_end_df, day_hours_list = start_end_times_of_rules(row["time"])
         for end_index, start_end in start_end_df.iterrows():
             for hour in range(start_end['start_time'], start_end['end_time'] + 1):
-                df['AbsSupport'][hour] = df['AbsSupport'][hour] + start_end['size']
-        df['RelSupport'] = df['AbsSupport'] / max_day
-        df['Utility'] = df['AbsSupport'] * df['RelSupport']
+                df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']
+        for day_hours in day_hours_list:
+            df.loc[day_hours, 'AbsSupport'] = df.loc[day_hours, 'AbsSupport'] + 1
+        df['RelSupport'] = df['TotalAbsSupport'] / max_day
+        df['Utility'] = df['TotalAbsSupport'] * df['RelSupport']
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
 
