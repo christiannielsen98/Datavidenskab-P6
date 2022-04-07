@@ -51,21 +51,10 @@ def create_production_dataframe(dataframe, filename):
 
     transformed_production_df['Coal'] = transformed_production_df['Coal'] + 1 - transformed_production_df.sum(1)
 
+    print(transformed_production_df.loc[lambda self: self.sum(1) < 0.999999999999].sum(1))
     # print(transformed_production_df)
-    # transformed_production_df["Hour"] = transformed_production_df.index.hour
-    # print(transformed_production_df.fillna(0).loc[lambda self: self["Hour"] == 1].loc[
-    #           lambda self: (self.sum(1) == 0), lambda self: ~self.columns.isin(["Hour"])])
 
-    # for hour in transformed_production_df["Hour"]:
-    #     transformed_production_df.loc[lambda self: self["Hour"] == hour].loc[
-    #         lambda self: (self.fillna(0).sum(1) == 0), lambda self: ~self.columns.isin(["Hour"])].fillna(
-    #         transformed_production_df.loc[lambda self: self["Hour"] == hour].loc[
-    #             lambda self: (self.fillna(0).sum(1) != 0), lambda self: ~self.columns.isin(["Hour"])].fillna(0).mean(
-    #             0), inplace=True)
-
-    # transformed_production_df.drop("Hour", inplace=True)
-
-    transformed_production_df = find_co2_emissions(transformed_production_df)
+    # transformed_production_df = find_co2_emissions(transformed_production_df)
 
     # Db.pickle_dataframe(dataframe=transformed_production_df, filename=filename)
 

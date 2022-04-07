@@ -58,7 +58,13 @@ def find_redundancy(house, status_cols):
 
     appliance_status = status_cols.loc[(lambda self:
                                         (~self.index.str.contains('SensHeat')) &
-                                        (~self['Measurement_Location'].isin(['Kitchen', 'Utility'])) &
+                                        (~self.index.isin(
+                                            ['Load_StatusApplianceCooktop', 'Load_StatusApplianceDishwasher',
+                                             'Load_StatusApplianceOven', 'Load_StatusApplianceRangeHood',
+                                             'Load_StatusLatentload', 'Load_StatusPlugLoadCoffeeMaker',
+                                             'Load_StatusPlugLoadSlowCooker', 'Load_StatusPlugLoadToaster',
+                                             'Load_StatusPlugLoadToasterOven', 'Load_StatusClothesWasher',
+                                             'Load_StatusDryerPowerTotal'])) &
                                         (self['Subsystem'] == 'Loads'))]
 
     for att, row in appliance_status.iterrows():
