@@ -10,7 +10,7 @@ from Project.Database import Db
 from Project._04TPMAlgorithm.transform_for_TPM_algorithm import light_location_dict
 
 
-def json_to_dataframe(year, level):
+def json_to_dataframe(year, level, exclude_follows=True):
     json_file = json.load(
         open(Db.get_save_file_directory(f"output/NZERTF_year{year}_minsup0.14_minconf_0.5/level{level}.json")))
     if "," in json_file[0]["name_node"]:
@@ -26,7 +26,7 @@ def json_to_dataframe(year, level):
         level_df.rename(columns={'name_node': 'pattern'}, inplace=True)
         level1=True
 
-    # level_df = filter_rule_indexes(level_df, level1)
+    level_df = filter_rule_indexes(level_df, level1, exclude_follows=exclude_follows)
 
     return level_df
 
@@ -35,7 +35,7 @@ def json_to_dataframe(year, level):
 
 
 # Filter fules
-def filter_rule_indexes(dataframe, level1):
+def filter_rule_indexes(dataframe, level1, exclude_follows=True):
     meta = Db.load_data(meta=True, consumption=False, hourly=False)
     level_3_check = len(re.findall('\*', dataframe.loc[0, 'pattern'])) > 0
     rule_type = ['app_app_app', 'psn_app_app', 'psn_psn_app']
@@ -44,10 +44,11 @@ def filter_rule_indexes(dataframe, level1):
     dataframe['floor'] = pd.NA
 
     # filter follows rules in dataframe for level3: max 1 and level2: 0
-    if level_3_check:
-        dataframe = dataframe.loc[dataframe['pattern'].str.findall('-').map(len) <= 1]
-    else:
-        dataframe = dataframe.loc[dataframe['pattern'].str.findall('-').map(len) == 0]
+    if exclude_follows:
+        if level_3_check:
+            dataframe = dataframe.loc[dataframe['pattern'].str.findall('-').map(len) <= 1]
+        else:
+            dataframe = dataframe.loc[dataframe['pattern'].str.findall('-').map(len) == 0]
 
     for index, row in dataframe.iterrows():
         tmp_floor_set = set()
@@ -61,6 +62,7 @@ def filter_rule_indexes(dataframe, level1):
             except:
                 tmp_floor_set.add(meta.loc[light_location_dict(meta)[col][0], 'Measurement_Floor'])
 
+        # Filter rules that has at least one appliance or is level 1
         dataframe.loc[index, 'multi_floor'] = {'1stFloor', '2ndFloor'} == tmp_floor_set
         if sum(appliance_check_list) >= 1 and not level1:
             if {'1stFloor', '2ndFloor'} == tmp_floor_set:
@@ -78,6 +80,7 @@ def filter_rule_indexes(dataframe, level1):
         elif level1:
             dataframe.loc[index, 'floor'] = list(tmp_floor_set)[0]
             dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)][:-8]
+
 
     dataframe.dropna(inplace=True, axis=0)
     dataframe.reset_index(inplace=True, drop=True)
