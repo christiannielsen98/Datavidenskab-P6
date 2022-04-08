@@ -3,7 +3,7 @@ import re
 
 def find_status_consumer_match(meta):
     def replace_short_remove_fill(string):
-        fill_words = ['Whether', 'Warm', 'Used', 'Usage', 'Total', 'Supply', 'Subset', 'Status', 'Simulate', 'Sens',
+        fill_words = ['Whether', 'Warm', 'With', 'Used', 'Usage', 'Total', 'Supply', 'Subset', 'Status', 'Standby', 'Simulate',
                       'Power', 'Plugged', 'Peninsula', 'Opening', 'Number', 'Note', 'Needed', 'Midnight', 'Located',
                       'Load',
                       'load', 'Leg', 'Items', 'Into', 'Instrumentation', 'Instantaneous', 'Inst', 'Indicate',
@@ -14,23 +14,21 @@ def find_status_consumer_match(meta):
             '1Lights': ['1Lights', '1Light'],
             '1st': ['1st', 'First'],
             '2nd': ['2nd', 'Second'],
-            'AUP': ['AUP', 'AUpstairs'],
-            'BUP': ['BUP', 'BUpstairs'],
-            'ADOWN': ['ADOWN', 'ADownstairs'],
-            'BDOWN': ['BDOWN', 'BDownstairs'],
+            'AUP': ['AUP', 'ASecondFloor'],
+            'BUP': ['BUP', 'BSecondFloor'],
+            'ADOWN': ['ADOWN', 'AFirstFloor'],
+            'BDOWN': ['BDOWN', 'BFirstFloor'],
             'ALighting': ['ALighting', 'ALight'],
             'And': ['And', ''],
             'Are': ['Are', ''],
             'At': ['At', ''],
             'Blue': ['Blue', 'Blu'],
             'By': ['By', ''],
-            'Cooktop': ['Cooktop', 'Oven'],
             'Entry': ['Entry', ''],
             'Hall': ['Hall', 'Hallway'],
             'In': ['In', ''],
             'Is': ['Is', ''],
             'KPlugs': ['KPlugs', 'KitchenPlug'],
-            'Kit': ['Kit', 'Kitchen'],
             'Lighting': ['Lighting', 'Light'],
             'Lights': ['Lights', 'Light'],
             'Of': ['Of', ''],
@@ -48,9 +46,9 @@ def find_status_consumer_match(meta):
             'TV': ['TV', 'Television']
         }
         if 'MBR' in string:
-            string = string.replace('MBR', 'MasterBedRoom')
+            string = string.replace('MBR', 'Masterbedroom')
         elif 'MBA' in string:
-            string = string.replace('MBA', 'MasterBathroom')
+            string = string.replace('MBA', 'Masterbathroom')
         elif 'BR' in string:
             string = string.replace('BR', 'Bedroom')
         elif 'BA' in string:
@@ -59,8 +57,14 @@ def find_status_consumer_match(meta):
             string = string.replace('LR', 'LivingRoom')
         elif 'DR' in string:
             string = string.replace('DR', 'DiningRoom')
-        elif 'Receptacles' in string:
-            string = string.replace('Receptacles', 'Plug')
+        if 'MasterBedroom' in string:
+            string = string.replace('MasterBedroom', 'Masterbedroom', 1)
+        if 'MasterBathroom' in string:
+            string = string.replace('MasterBathroom', 'Masterbathroom', 1)
+        if 'KitRange' in string:
+            string = string.replace('KitRange', 'KitchenRange', 1)
+        if 'KitPeninsula' in string:
+            string = string.replace('KitPeninsula', 'KitchenPeninsula', 1)
         for fill_word in fill_words:
             if fill_word in string:
                 string = string.replace(fill_word, '')
@@ -86,7 +90,7 @@ def find_status_consumer_match(meta):
                 re.findall('[A-Z0-9][a-z]*', consumer)
             )
             if ((('Light' in status_parts_set and 'Light' in consumer_parts_set) or (
-                    'Plug' in status_parts_set and 'Plug' in consumer_parts_set)) or (
+                    ('Plug' in status_parts_set or 'Range' in status_parts_set) and 'Plug' in consumer_parts_set)) or (
                     ('Light' not in status_parts_set and 'Light' not in consumer_parts_set and
                      'Plug' not in status_parts_set and 'Plug' not in consumer_parts_set))):
                 if condition(status_parts_set, consumer_parts_set):
@@ -113,23 +117,18 @@ def find_status_consumer_match(meta):
     ]
 
     status_condition = (lambda self:
-                        # (self.index.str.contains("Load")) &
-                        # (self['Subsystem'] == 'Loads') &
-                        # (~self.index.str.contains('SensHeat')) &
+                        (self.index.str.contains("Load")) &
                         (self['Units'] == 'BinaryStatus'))
     status_attributes = meta.loc[status_condition]
     consumer_condition = (lambda self, subsystems:
                           self.index.str.contains(subsystems) &
-                          # (self['Subsystem'].isin(subsystems)) &
                           (self['Units'] == 'W'))
 
     matches_dict = {}
-    other_dict = {}
     for status_orig, status_row in status_attributes.iterrows():
         status = replace_short_remove_fill(status_orig.split('_')[-1])
         joined_status_description = ''.join(part.capitalize() for part in status_row['Description'].split(' '))
         cleaned_status_description = replace_short_remove_fill(joined_status_description)
-        status_room = status_row['Measurement_Location']
 
         location_conditions = [
             (lambda self:
@@ -143,7 +142,6 @@ def find_status_consumer_match(meta):
             re.findall('[A-Z0-9][a-z]*', cleaned_status_description) +
             re.findall('[A-Z0-9][a-z]*', status)
         )
-
         for sub_system in ['Load', 'Elec', 'DHW']:
             included = False
             matches_dict[sub_system] = matches_dict.get(sub_system, {})

@@ -138,7 +138,8 @@ class __Database:
         self.__ensure_directory("/".join(subdirectory))
         return self.get_data_path("/".join(subdirectory + [file_subdirectory_list[-1]]))
 
-    def load_data(self, year=1, hourly=True, consumption=True, production=False, meta=False, from_csv=False):
+    def load_data(self, year=1, hourly=True, consumption=True, production=False, meta=False, with_redundancy=True,
+                  from_csv=False):
         """
         Loads in the pickled dataframe objects
         :param year: An integer index to request the dataset of a specific year.
@@ -147,6 +148,8 @@ class __Database:
         :return:
         """
         time_base = "hour" if hourly else "minute"
+        redundancy = '' if with_redundancy else '_no_redundancy'
+
         if from_csv:
             data = []
             if consumption:
@@ -157,7 +160,8 @@ class __Database:
             try:
                 data = []
                 if consumption:
-                    data.append(read_pickle(self.get_save_file_directory(f"All-Subsystems-{time_base}-year{year}.pkl")))
+                    data.append(read_pickle(
+                        self.get_save_file_directory(f"All-Subsystems-{time_base}-year{year}{redundancy}.pkl")))
                 if meta:
                     data.append(
                         read_pickle(self.get_save_file_directory(f"Metadata-{time_base}-year{year}.pkl")))
