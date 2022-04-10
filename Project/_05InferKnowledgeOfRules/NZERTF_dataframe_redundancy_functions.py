@@ -3,122 +3,169 @@ import pandas as pd
 from Project.Database import Db
 
 
-def find_status_one(dataframe, status_atts):
-    if isinstance(status_atts, list) and len(status_atts) >= 1:
-        return dataframe.loc[(lambda self: self[status_atts].sum(1) == len(status_atts))]
-    elif isinstance(status_atts, str):
-        return dataframe.loc[(lambda self: self[status_atts] == 1)]
+def find_status_one(dataframe, app_status_atts):
+    """
+    Searches the dataframe for rows where all app_status_atts = 1
+    :param dataframe: NZERTF DataFrame
+    :param app_status_atts: Appliances to look for
+    :return: dataframe rows
+    """
+    if isinstance(app_status_atts, list) and len(app_status_atts) >= 1:
+        return dataframe.loc[(lambda self: self[app_status_atts].sum(1) == len(app_status_atts))]
+    elif isinstance(app_status_atts, str):
+        return dataframe.loc[(lambda self: self[app_status_atts] == 1)]
     else:
         return dataframe
 
 
-def find_status_zero(dataframe, status_atts):
-    if isinstance(status_atts, list) and len(status_atts) >= 1:
-        return dataframe.loc[(lambda self: self[status_atts].sum(1) == 0)]
-    elif isinstance(status_atts, str):
-        return dataframe.loc[(lambda self: self[status_atts] == 0)]
+def find_status_zero(dataframe, app_status_atts):
+    """
+    Searches the dataframe for rows where all app_status_atts = 0
+    :param dataframe: NZERTF DataFrame
+    :param app_status_atts: Appliances to look for
+    :return: dataframe rows
+    """
+    if isinstance(app_status_atts, list) and len(app_status_atts) >= 1:
+        return dataframe.loc[(lambda self: self[app_status_atts].sum(1) == 0)]
+    elif isinstance(app_status_atts, str):
+        return dataframe.loc[(lambda self: self[app_status_atts] == 0)]
     else:
         return dataframe
 
 
-def find_status_ppl_same_floor(status_cols, status_row):
-    tmp_meta = status_cols.copy()
-    return tmp_meta.loc[(lambda self: (self.index.str.contains('SensHeat')) & (
+def find_status_ppl_same_floor(meta_data_status_rows, status_row):
+    """
+    Searches NZERTF meta data for person status attributes simulating person on same floor as appliance
+    :param meta_data_status_rows: All meta data rows of appliance status attributes (columns in NZERTF Data) 
+    :param status_row: Single meta data appliance status row
+    :return: A list of person status attributes
+    """
+    return meta_data_status_rows.loc[(lambda self: (self.index.str.contains('SensHeat')) & (
             self['Measurement_Floor'] == status_row['Measurement_Floor']))].index.tolist()
 
 
-def find_status_siblings(status_cols, status_row, status_att):
-    tmp_meta = status_cols.copy()
-    tmp_meta.drop(status_att, inplace=True)
-    return tmp_meta.loc[(lambda self: (self['Load_Match'] == status_row['Load_Match']))].index.tolist()
+def find_status_siblings(meta_data_status_rows, status_row, app_status_att):
+    """
+    Searches the meta data for appliances with a mutual consumption attribute (sibling) with app_status_att attribute
+    :param meta_data_status_rows: All meta data rows of appliance status attributes (columns in NZERTF Data) 
+    :param status_row: Single meta data appliance status row
+    :param app_status_att: Appliance to compare consumer with
+    :return: A list of appliance status attributes
+    """
+    return meta_data_status_rows.loc[(lambda self: (~self.index.isin([app_status_att])) & (
+            self['Consumer_Match'] == status_row['Consumer_Match']))].index.tolist()
 
 
-def find_status_siblings_zero(dataframe, status_cols, status_row, status_att):
-    return find_status_zero(dataframe, find_status_siblings(status_cols, status_row, status_att))
+def find_status_siblings_zero(dataframe, meta_data_status_rows, status_row, app_status_att):
+    """
+    Searches the dataframe for rows where siblings are turned off
+    :param dataframe: NZERTF DataFrame
+    :param meta_data_status_rows: All meta data rows of appliance status attributes (columns in NZERTF Data) 
+    :param status_row: Single meta data appliance status row
+    :param app_status_att: Appliance to find siblings of
+    :return: Dataframe rows where siblings are turned off
+    """
+    return find_status_zero(dataframe=dataframe,
+                            app_status_atts=find_status_siblings(meta_data_status_rows=meta_data_status_rows,
+                                                                 status_row=status_row, app_status_att=app_status_att))
 
 
 def remove_zero_consumption(dataframe, status_row):
-    return dataframe.loc[lambda self: self[status_row['Load_Match']] > 0]
-
-
-def find_power_consumption(dataframe, status_cols, status_row, status_att):
-    dataframe = remove_zero_consumption(find_status_one(dataframe, status_att), status_row)
-    # return dataframe[status_row['Load_Match']].div(dataframe[find_status_siblings(status_row, status_att)].sum(1) + 1).mean()
-    dataframe_siblings_zero = find_status_siblings_zero(dataframe, status_cols, status_row, status_att)
-    if dataframe_siblings_zero.shape[0] > 0:
-        return dataframe_siblings_zero[status_row['Load_Match']].mean()
-    else:
-        return dataframe[status_row['Load_Match']].div(
-            dataframe[find_status_siblings(status_cols, status_row, status_att)].sum(1) + 1).mean()
-
-
-def find_redundancy(house, status_cols):
-    redundancy_df = pd.DataFrame(columns=['RedundantMinutes', 'PowerConsumption', 'EnergyConsumed'])
-    timestamp_df = pd.DataFrame(house['Timestamp'])
-
-    appliance_status = status_cols.loc[(lambda self:
-                                        (~self.index.str.contains('SensHeat')) &
-                                        (~self.index.isin(
-                                            ['Load_StatusApplianceCooktop', 'Load_StatusApplianceDishwasher',
-                                             'Load_StatusApplianceOven', 'Load_StatusApplianceRangeHood',
-                                             'Load_StatusLatentload', 'Load_StatusPlugLoadCoffeeMaker',
-                                             'Load_StatusPlugLoadSlowCooker', 'Load_StatusPlugLoadToaster',
-                                             'Load_StatusPlugLoadToasterOven', 'Load_StatusClothesWasher',
-                                             'Load_StatusDryerPowerTotal'])) &
-                                        (self['Subsystem'] == 'Loads'))]
-
-    for att, row in appliance_status.iterrows():
-
-        power_consumption = find_power_consumption(house, status_cols, row, att)
-        tmp_df = find_status_one(house, att)
-
-        if att == 'Load_StatusPlugLoadVacuum':
-            ppl = status_cols.loc[(lambda self: (self.index.str.contains('SensHeat')))].index.tolist()
-
-        elif row['Measurement_Location'] == 'Bedroom2':
-            ppl = 'Load_StatusSensHeatChildAUP'
-
-        elif row['Measurement_Location'] == 'Bedroom3':
-            ppl = 'Load_StatusSensHeatChildBUP'
-
-        elif row['Measurement_Location'] in ['MasterBedroom', 'MasterBathroom']:
-            ppl = ['Load_StatusSensHeatPrntAUP', 'Load_StatusSensHeatPrntBUP']
-
-        elif row['Measurement_Location'] == 'Bedroom4':
-            ppl = ['Load_StatusSensHeatPrntADOWN', 'Load_StatusSensHeatPrntBDOWN']
-
-        else:
-            ppl = find_status_ppl_same_floor(status_cols, row)
-
-        tmp_df = find_status_zero(tmp_df, ppl)
-
-        redundancy_df.loc[att] = {
-            'PowerConsumption': power_consumption,
-            'RedundantMinutes': tmp_df.shape[0],
-            'EnergyConsumed': f'{tmp_df.shape[0] * power_consumption / 60 / 1000} kWh'
-        }
-        timestamp_df.loc[tmp_df['Timestamp'].index.tolist(), att] = 1
-
-    timestamp_df.fillna(0, inplace=True)
-    return redundancy_df, timestamp_df
+    """
+    Removes all rows where the consumer attribute = 0
+    :param dataframe: NZERTF DataFrame
+    :param status_row: Single meta data appliance status row
+    :return: Dataframe rows where consumer != 0
+    """
+    return dataframe.loc[lambda self: self[status_row['Consumer_Match']] > 0]
 
 
 def create_redundancy_dataframes():
-    year_redundancy_df_dict = {}
-    timestamp_dict = {}
-
+    """
+    Creates a binary redundancy dataframe for each year of the NZERTF data indexed by timestamp. 1 flags redundancy
+    :return: The redundancy dataframe
+    """
+    redundancy_df_dict = {}
     for year in [1, 2]:
         NZERTF, NZERTF_meta = Db.load_data(hourly=False, meta=True, year=year)
-        status_cols = NZERTF_meta.loc[(lambda self: self['Units'] == 'BinaryStatus')]
+        meta_data_status_rows = NZERTF_meta.loc[(lambda self: self['Units'] == 'BinaryStatus')]
+        redundancy_df = pd.DataFrame(NZERTF['Timestamp'])
 
-        year_redundancy_df_dict[f'Year{year}'], timestamp_dict[f'Year{year}'] = find_redundancy(NZERTF, status_cols)
+        appliance_status = meta_data_status_rows.loc[
+            (lambda self:
+             (~self.index.str.contains('SensHeat')) &
+             (~self.index.isin(
+                 ['Load_StatusApplianceCooktop', 'Load_StatusApplianceDishwasher', 'Load_StatusApplianceOven',
+                  'Load_StatusApplianceRangeHood', 'Load_StatusLatentload', 'Load_StatusPlugLoadCoffeeMaker',
+                  'Load_StatusPlugLoadSlowCooker', 'Load_StatusPlugLoadToaster', 'Load_StatusPlugLoadToasterOven',
+                  'Load_StatusClothesWasher', 'Load_StatusDryerPowerTotal', 'Load_StatusRefrigerator',
+                  'Load_StatusHeatPumpWaterHeater'])) &
+             (self['Subsystem'] == 'Loads'))]
 
+        for att, row in appliance_status.iterrows():
+            tmp_df = find_status_one(NZERTF, att)
+
+            if att == 'Load_StatusPlugLoadVacuum':
+                ppl = meta_data_status_rows.loc[(lambda self: (self.index.str.contains('SensHeat')))].index.tolist()
+
+            elif row['Measurement_Location'] == 'Bedroom2':
+                ppl = 'Load_StatusSensHeatChildAUP'
+
+            elif row['Measurement_Location'] == 'Bedroom3':
+                ppl = 'Load_StatusSensHeatChildBUP'
+
+            elif row['Measurement_Location'] in ['MasterBedroom', 'MasterBathroom']:
+                ppl = ['Load_StatusSensHeatPrntAUP', 'Load_StatusSensHeatPrntBUP']
+
+            elif row['Measurement_Location'] == 'Bedroom4':
+                ppl = ['Load_StatusSensHeatPrntADOWN', 'Load_StatusSensHeatPrntBDOWN']
+
+            else:
+                ppl = find_status_ppl_same_floor(meta_data_status_rows=meta_data_status_rows, status_row=row)
+
+            tmp_df = find_status_zero(tmp_df, ppl)
+
+            redundancy_df.loc[tmp_df['Timestamp'].index.tolist(), att] = 1
+
+        redundancy_df.fillna(0, inplace=True)
+        redundancy_df_dict[f'Year{year}'] = redundancy_df.copy()
+
+    return redundancy_df_dict
+
+
+def find_average_power_consumption_per_minute():
+    """
+    Estimates average power consumption per minute of NZERTF appliances into a dataframe
+    :return: A dataframe of mean power consumption of NZERTF appliances
+    """
+    consumption_dict = {}
     for year in [1, 2]:
-        year_redundancy_df_dict[f'Year{year}']['PowerConsumption'] = pd.DataFrame(
-            year_redundancy_df_dict[f'Year{year}']['PowerConsumption']).merge(
-            right=year_redundancy_df_dict[f'Year{2 if year == 1 else 1}']['PowerConsumption'], how='left',
-            left_index=True, right_index=True).mean(1)
-        year_redundancy_df_dict[f'Year{year}']['EnergyConsumed'] = year_redundancy_df_dict[f"Year{year}"][
-            "RedundantMinutes"].multiply(year_redundancy_df_dict[f"Year{year}"]["PowerConsumption"]).div(60000)
+        consumption_dict[f'year{year}PowerConsumption(Wm)'] = consumption_dict.get(f'year{year}PowerConsumption(Wm)',
+                                                                                   {})
+        NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
+        meta_data_status_rows = NZERTF_meta.loc[
+            lambda self: (self['Units'] == 'BinaryStatus') & (~self['Consumer_Match'].isna())]
 
-    return year_redundancy_df_dict, timestamp_dict
+        for app_status_att, status_row in meta_data_status_rows.iterrows():
+            dataframe = remove_zero_consumption(find_status_one(NZERTF, app_status_att), status_row)
+            dataframe_siblings_zero = find_status_siblings_zero(dataframe=dataframe,
+                                                                meta_data_status_rows=meta_data_status_rows,
+                                                                status_row=status_row, app_status_att=app_status_att)
+            if dataframe_siblings_zero.shape[0] > 0:
+                consumption_dict[f'year{year}PowerConsumption(Wm)'].update({
+                    app_status_att: dataframe_siblings_zero[status_row['Consumer_Match']].mean()
+                })
+            else:
+                consumption_dict[f'year{year}PowerConsumption(Wm)'].update({
+                    app_status_att: dataframe[status_row['Consumer_Match']].div(dataframe[find_status_siblings(
+                        meta_data_status_rows=meta_data_status_rows, status_row=status_row,
+                        app_status_att=app_status_att)].sum(1) + 1).mean()
+                })
+
+    consumption_df = pd.DataFrame(consumption_dict)
+
+    return pd.DataFrame({'PowerConsumption(Wm)': consumption_df.mean(1).round()})
+
+
+if __name__ == '__main__':
+    print(find_average_power_consumption_per_minute())
