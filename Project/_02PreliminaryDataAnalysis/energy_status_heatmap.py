@@ -40,11 +40,11 @@ def normalise_dataframe(df):
     '''
     normalised_df = df.copy()
 
-    for column in normalised_df:
-        try:
+    for column in normalised_df.columns:
+        if normalised_df[column].max() != 0:
             normalised_df[column] = (normalised_df[column] - normalised_df[column].min()) / (
                     normalised_df[column].max() - normalised_df[column].min())
-        except:
+        else:
             normalised_df[column] = normalised_df[column]
 
     return normalised_df
