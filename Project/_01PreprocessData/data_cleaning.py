@@ -30,6 +30,15 @@ room_floor_dict = {
 
 
 def data_cleaner(hourly, year):
+    """
+
+    :param hourly:
+    :type hourly:
+    :param year:
+    :type year:
+    :return:
+    :rtype:
+    """
     house, meta = Db.load_data(hourly=hourly, meta=True, year=year, from_csv=True)
 
     meta.set_index('Unnamed: 0', inplace=True)
