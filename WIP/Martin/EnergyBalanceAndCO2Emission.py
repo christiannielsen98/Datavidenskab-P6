@@ -45,3 +45,5 @@ print(f'  CO2 Emission             : {round(NZERTF_year1_energy["CO2Emission(kg)
 
 px.line(NZERTF_year1_energy, y=['CO2Emission(kg)', 'GridConsumption(kWh)', 'EnergyBalance(kWh)'],
         x=NZERTF_year1_energy.index).show()
+px.line(NZERTF_year1_energy.cumsum(), y=['CO2Emission(kg)', 'GridConsumption(kWh)', 'EnergyBalance(kWh)'],
+        x=NZERTF_year1_energy.index).show()
