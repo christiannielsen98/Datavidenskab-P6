@@ -180,7 +180,7 @@ class __Database:
         return data
 
     def pickle_dataframe(self, dataframe, filename):
-        dataframe.to_pickle(self.get_data_path(filename))
+        dataframe.to_pickle(self.get_save_file_directory(filename))
         self.__move_files()
 
 
