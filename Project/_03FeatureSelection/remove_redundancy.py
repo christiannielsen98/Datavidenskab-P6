@@ -1,25 +1,17 @@
-import pandas as pd
-import numpy as np
-
 from Project._03FeatureSelection.NZERTF_dataframe_redundancy_functions import create_redundancy_dataframes
 from Project.Database import Db
 
 
-def remove_redundancy(dataframe, redundancy_dataframe):
-    pass
-
-
-if __name__ == '__main__':
+def remove_redundant_power_consumption_from_data():
     NZERTF_redundancy = create_redundancy_dataframes()
     for year in [1, 2]:
         NZERTF, NZERTF_meta = Db.load_data(hourly=False, meta=True, year=year)
         status_columns = NZERTF_redundancy[f'Year{year}'].columns[1:].tolist()
-        consumer_columns = NZERTF_meta.loc[status_columns, 'Consumer_Match'].tolist()
-        # print(NZERTF[status_columns].sum(1).sum())
-        # print(NZERTF[consumer_columns].sum(1).sum())
-        # NZERTF = NZERTF.where(NZERTF_redundancy[f'Year{year}'][status_columns] == 0).fillna(0)
-        for status_att, consumer in NZERTF_meta.loc[status_columns, 'Consumer_Match'].iteritems():
-            NZERTF.loc[lambda self: self[status_att] == 0, consumer] = 0
+        NZERTF = NZERTF.where(NZERTF_redundancy[f'Year{year}'][status_columns] == 0).fillna(0)
+        for status_att, row in NZERTF_meta.loc[status_columns].iterrows():
+            NZERTF.loc[NZERTF_redundancy[f'Year{year}'][status_att] == 1, row['Consumer_Match']] = row['Standby_Power']
+        Db.pickle_dataframe(NZERTF, f"All-Subsystems-minute-year{year}_no_redundancy.pkl")
 
-        # print(NZERTF[status_columns].sum(1).sum())
-        print(NZERTF[consumer_columns].sum(1).sum())
+
+if __name__ == '__main__':
+    remove_redundant_power_consumption_from_data()
