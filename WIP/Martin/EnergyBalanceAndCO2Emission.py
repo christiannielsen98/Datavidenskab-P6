@@ -3,7 +3,7 @@ import plotly.express as px
 
 from Project.Database import Db
 
-NZERTF_year1, NZERTF_year1_meta, NZERTF_year1_production = Db.load_data(hourly=False, meta=True, production=True)
+NZERTF_year1, NZERTF_year1_meta, NZERTF_year1_production = Db.load_data(hourly=False, meta=True, production=True, year=1)
 
 consumers = NZERTF_year1_meta.loc[lambda self: (~self['Consumer_Match'].isna()), 'Consumer_Match'].tolist() + \
             NZERTF_year1_meta.loc[
@@ -11,7 +11,7 @@ consumers = NZERTF_year1_meta.loc[lambda self: (~self['Consumer_Match'].isna()),
 
 producers = NZERTF_year1_meta.loc[lambda self: (self['Units'] == 'W') & (self.index.str.contains('PV_'))].index.tolist()
 
-NZERTF_year1[producers] = NZERTF_year1[producers] * -1
+NZERTF_year1[producers] = NZERTF_year1[producers].clip(lower=0) * -1
 
 NZERTF_year1 = NZERTF_year1[consumers + producers].set_index(
     pd.to_datetime(NZERTF_year1['Timestamp'], format='%Y-%m-%d %H:%M:%S'))
@@ -21,7 +21,7 @@ NZERTF_year1_energy = NZERTF_year1.div(60).div(1000)
 del NZERTF_year1, NZERTF_year1_meta
 
 NZERTF_year1_energy['EnergyBalance(kWh)'] = NZERTF_year1_energy.sum(1)
-NZERTF_year1_energy['GridConsumption(kWh)'] = NZERTF_year1_energy['EnergyBalance(kWh)'].map(lambda val: max(val, 0))
+NZERTF_year1_energy['GridConsumption(kWh)'] = NZERTF_year1_energy['EnergyBalance(kWh)'].clip(lower=0)
 
 NZERTF_year1_energy = NZERTF_year1_energy.groupby(NZERTF_year1_energy.index.strftime('%Y-%m-%d %H')).sum()
 

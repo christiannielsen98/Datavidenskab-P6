@@ -102,10 +102,10 @@ def create_redundancy_dataframes():
                   'Load_StatusHeatPumpWaterHeater'])) &
              (self['Subsystem'] == 'Loads'))]
 
-        for att, row in appliance_status.iterrows():
-            tmp_df = find_status_one(NZERTF, att)
+        for app_status_att, row in appliance_status.iterrows():
+            tmp_df = find_status_one(NZERTF, app_status_att)
 
-            if att == 'Load_StatusPlugLoadVacuum':
+            if app_status_att == 'Load_StatusPlugLoadVacuum':
                 ppl = meta_data_status_rows.loc[(lambda self: (self.index.str.contains('SensHeat')))].index.tolist()
 
             elif row['Measurement_Location'] == 'Bedroom2':
@@ -125,7 +125,7 @@ def create_redundancy_dataframes():
 
             tmp_df = find_status_zero(tmp_df, ppl)
 
-            redundancy_df.loc[tmp_df['Timestamp'].index.tolist(), att] = 1
+            redundancy_df.loc[tmp_df['Timestamp'].index.tolist(), app_status_att] = 1
 
         redundancy_df.fillna(0, inplace=True)
         redundancy_df_dict[f'Year{year}'] = redundancy_df.copy()
