@@ -131,7 +131,16 @@ def start_end_times_of_rules(dictionary):
 #     return start_end_times_df
 
 
-def SE_time_df(dataframe):
+def SE_time_df(dataframe, TAT=0.1):
+    """
+
+    :param dataframe:
+    :type dataframe:
+    :param TAT: Time Associtaion Threshold
+    :type TAT: fraction
+    :return:
+    :rtype:
+    """
     rule_dict = {}
     max_day = -1
     for index, row in dataframe.iterrows():
@@ -147,7 +156,7 @@ def SE_time_df(dataframe):
         df['EventCount'] = sum([len(events) for events in row['time'].values()])
         df['ExternalUtility'] = row['supp']
         df['RelSupport'] = df['AbsSupport'] / max_day
-        df['TimeAssociation'] = df['TotalAbsSupport'] / df['EventCount']
+        df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1, 0) #df['TotalAbsSupport'] / df['EventCount']
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
 
