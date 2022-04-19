@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 from Project.Database import Db
-from Project._03FeatureSelection.data_matcher import find_status_consumer_match
+from Project._01PreprocessData.data_matcher import find_status_consumer_match
 
 room_floor_dict = {
     'Attic': 'Attic',
@@ -110,8 +110,9 @@ def data_cleaner(hourly, year):
         'Measurement_Floor': 'Basement'
     }
     meta['Standby_Power'] = house[consumer_columns].describe().loc['50%', (lambda self:
-                                                                           (self['25%'] == self['50%']) |
-                                                                           (self['50%'] == self['75%']))]
+                                                                           (self.loc['25%'] == self.loc['50%']) |
+                                                                           (self.loc['50%'] == self.loc['75%']))]
+    meta['Standby_Power'] = meta.loc[lambda self: self['Units'] == 'W', 'Standby_Power'].fillna(0)
 
     for col in ['Subsystem', 'Measurement_Location', 'Parameter', 'Units']:
         meta[col] = meta[col].str.replace(' ', '')
@@ -159,4 +160,4 @@ if __name__ == '__main__':
             time_base = 'hour' if hourly else 'minute'
             NZERTF, NZERTF_meta = data_cleaner(hourly, year)
             Db.pickle_dataframe(dataframe=NZERTF_meta, filename=f'Metadata-{time_base}-year{year}.pkl')
-            # Db.pickle_dataframe(dataframe=NZERTF, filename=f'All-Subsystems-{time_base}-year{year}.pkl')
+            Db.pickle_dataframe(dataframe=NZERTF, filename=f'All-Subsystems-{time_base}-year{year}.pkl')
