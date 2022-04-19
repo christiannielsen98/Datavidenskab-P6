@@ -35,8 +35,8 @@ def data_cleaner(hourly, year):
     meta.set_index('Unnamed: 0', inplace=True)
     # meta = meta.loc[~((~pd.isnull(house)).sum(0) <= (house.shape[0] / 2))]
 
-    status_condition = (lambda self: self['Units'] == 'Binary Status')
-    status_columns = meta.loc[status_condition].index.tolist()
+    status_columns = meta.loc[(lambda self: self['Units'] == 'Binary Status')].index.tolist()
+    consumer_columns = meta.loc[(lambda self: self['Units'] == 'W')].index.tolist()
 
     # house[(house[status_columns] != 0) & (house[status_columns] != 1)] = np.NaN
     # house = house.ffill()
@@ -109,6 +109,9 @@ def data_cleaner(hourly, year):
         'max_value': 1,
         'Measurement_Floor': 'Basement'
     }
+    meta['Standby_Power'] = house[consumer_columns].describe().loc['50%', (lambda self:
+                                                                           (self['25%'] == self['50%']) |
+                                                                           (self['50%'] == self['75%']))]
 
     for col in ['Subsystem', 'Measurement_Location', 'Parameter', 'Units']:
         meta[col] = meta[col].str.replace(' ', '')
@@ -156,4 +159,4 @@ if __name__ == '__main__':
             time_base = 'hour' if hourly else 'minute'
             NZERTF, NZERTF_meta = data_cleaner(hourly, year)
             Db.pickle_dataframe(dataframe=NZERTF_meta, filename=f'Metadata-{time_base}-year{year}.pkl')
-            Db.pickle_dataframe(dataframe=NZERTF, filename=f'All-Subsystems-{time_base}-year{year}.pkl')
+            # Db.pickle_dataframe(dataframe=NZERTF, filename=f'All-Subsystems-{time_base}-year{year}.pkl')
