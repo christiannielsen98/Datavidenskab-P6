@@ -30,11 +30,10 @@ def create_column_translator(meta_data):
 
 
 def transform_for_TPM(year):
-    data, meta_data = Db.load_data(hourly=False, meta=True, year=year)
+    data, meta_data = Db.load_data(hourly=False, meta=True, year=year, with_redundancy=False)
     meta_data = meta_data.loc[status_condition]
     data['DayOfYear'] = data['Timestamp'].dt.dayofyear
     data['DayIndex'] = data['DayOfYear'] - data['DayOfYear'][0]
-
     # Find the first row index with negative value
     first_index = data.loc[lambda self: self['DayIndex'] < 0].index.tolist()[0]
     data.loc[first_index:, 'DayIndex'] = data.loc[first_index:, 'DayIndex'] + 365
@@ -42,12 +41,12 @@ def transform_for_TPM(year):
     data = data[['Timestamp', 'DayIndex'] + meta_data.index.tolist()]
     appliance_list = meta_data.index.tolist()
     # Group room lights
-    for new_col, old_cols in light_location_dict(meta_data).items():
-        data[new_col] = data[old_cols].max(1)
-        data.drop(old_cols, axis=1, inplace=True)
-        appliance_list.append(new_col)
-        for old_col in old_cols:
-            appliance_list.remove(old_col)
+    # for new_col, old_cols in light_location_dict(meta_data).items():
+    #     data[new_col] = data[old_cols].max(1)
+    #     data.drop(old_cols, axis=1, inplace=True)
+    #     appliance_list.append(new_col)
+    #     for old_col in old_cols:
+    #         appliance_list.remove(old_col)
 
     # Find appliance switch on/off timestamps
     tmp_list = []
@@ -68,7 +67,7 @@ def transform_for_TPM(year):
                     continue
 
     csv_data = pd.DataFrame(tmp_list).sort_values(by=['day', 'start']).reset_index(drop=True)
-    csv_data.to_csv(path_or_buf=Db.get_project_path(f'Project/_04TPMAlgorithm/TPM/Data/NZERTF_year{year}.csv'),
+    csv_data.to_csv(path_or_buf=Db.get_project_path(f'Project/_04TPMAlgorithm/TPM/Data/NZERTF_year{year}_no_redundancy.csv'),
                     header=False,
                     index=False)
 
