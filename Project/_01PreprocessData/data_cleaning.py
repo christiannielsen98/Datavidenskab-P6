@@ -112,7 +112,7 @@ def data_cleaner(hourly, year):
     meta['Standby_Power'] = house[consumer_columns].describe().loc['50%', (lambda self:
                                                                            (self.loc['25%'] == self.loc['50%']) |
                                                                            (self.loc['50%'] == self.loc['75%']))]
-    meta['Standby_Power'] = meta.loc[lambda self: self['Units'] == 'W', 'Standby_Power'].fillna(0)
+    meta.loc[consumer_columns, 'Standby_Power'] = meta.loc[consumer_columns, 'Standby_Power'].fillna(0)
 
     for col in ['Subsystem', 'Measurement_Location', 'Parameter', 'Units']:
         meta[col] = meta[col].str.replace(' ', '')
@@ -146,7 +146,7 @@ def data_cleaner(hourly, year):
     meta.loc['Load_StatusApplianceCooktop', 'Consumer_Match'] = 'Elec_PowerGarbageDisposal'
     meta.loc['Load_StatusEntryHallLights', 'Consumer_Match'] = 'Elec_PowerLights1stFloorB'
     meta.loc['Load_StatusBA1Lights', 'Consumer_Match'] = 'Elec_PowerLights1stFloorB'
-    meta.loc[lambda self: self['Consumer_Match'] == 'Elec_PowerPlugsInstMBRA'] = 'Load_MBRPlugLoadsPowerUsage'
+    meta.loc[lambda self: self['Consumer_Match'] == 'Elec_PowerPlugsInstMBRA', 'Consumer_Match'] = 'Load_MBRPlugLoadsPowerUsage'
     meta.loc['Load_StatusPlugLoadHairDryerCurlIron', 'Consumer_Match'] = 'Elec_PowerPlugsMBAEast'
 
     meta.drop('DHW_Match', axis=1, inplace=True)

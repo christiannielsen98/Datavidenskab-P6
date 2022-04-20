@@ -1,18 +1,17 @@
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-
-import re
-import datetime
-import numpy as np
 import json
+import re
+
+import numpy as np
+import pandas as pd
+
 from Project.Database import Db
 from Project._04TPMAlgorithm.transform_for_TPM_algorithm import light_location_dict
 
 
-def json_to_dataframe(year, level, exclude_follows=True):
+def json_to_dataframe(year, level, exclude_follows=True, with_redundancy=True):
+    redundancy = '' if with_redundancy else '_no_redundancy'
     json_file = json.load(
-        open(Db.get_save_file_directory(f"output/NZERTF_year{year}_minsup0.14_minconf_0.5/level{level}.json")))
+        open(Db.get_save_file_directory(f"output/NZERTF_year{year}{redundancy}_minsup0.14_minconf_0.5/level{level}.json")))
     if "," in json_file[0]["name_node"]:
         level_df = pd.DataFrame(columns=["pattern", "supp", "conf", "time"])
         level1=False
