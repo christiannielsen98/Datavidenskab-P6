@@ -11,10 +11,11 @@ from Project._04TPMAlgorithm.transform_for_TPM_algorithm import light_location_d
 def json_to_dataframe(year, level, exclude_follows=True, with_redundancy=True):
     redundancy = '' if with_redundancy else '_no_redundancy'
     json_file = json.load(
-        open(Db.get_save_file_directory(f"output/NZERTF_year{year}{redundancy}_minsup0.14_minconf_0.5/level{level}.json")))
+        open(Db.get_save_file_directory(
+            f"output/NZERTF_year{year}{redundancy}_minsup0.14_minconf_0.5/level{level}.json")))
     if "," in json_file[0]["name_node"]:
         level_df = pd.DataFrame(columns=["pattern", "supp", "conf", "time"])
-        level1=False
+        level1 = False
         for i in json_file:
             for j in i["patterns"]:
                 level_df.loc[level_df.shape[0]] = j
@@ -23,7 +24,7 @@ def json_to_dataframe(year, level, exclude_follows=True, with_redundancy=True):
         for i in json_file:
             level_df.loc[level_df.shape[0]] = i
         level_df.rename(columns={'name_node': 'pattern'}, inplace=True)
-        level1=True
+        level1 = True
 
     level_df = filter_rule_indexes(level_df, level1, exclude_follows=exclude_follows)
 
@@ -80,15 +81,15 @@ def filter_rule_indexes(dataframe, level1, exclude_follows=True):
             dataframe.loc[index, 'floor'] = list(tmp_floor_set)[0]
             dataframe.loc[index, 'rule'] = rule_type[sum(person_check_list)][:-8]
 
-
     dataframe.dropna(inplace=True, axis=0)
     dataframe.reset_index(inplace=True, drop=True)
     return dataframe
 
 
-def start_end_times_of_rules(dictionary):
+def start_end_times_of_rules(dictionary, LS_quantile):
     start_end_list = []
     start_end_set_list = []
+    lifespan = pd.Series(dtype='int32')
     for day in dictionary.values():
         start_end_set = set()
         for event in day:
@@ -98,39 +99,33 @@ def start_end_times_of_rules(dictionary):
                 for appliance in event:
                     event_start_times.append(appliance[0])
                     event_end_times.append(appliance[1])
-                start_time = int(min(event_start_times).split(":")[0].split(" ")[1])
-                end_time = int(max(event_end_times).split(":")[0].split(" ")[1])
-                start_end_list.append([start_time] + [end_time])
-                start_end_set.update({hour for hour in range(start_time, end_time + 1)})
+                start_hour = int(min(event_start_times).split(":")[0].split(" ")[1])
+                end_hour = int(max(event_end_times).split(":")[0].split(" ")[1])
+                start_end_list.append([start_hour] + [end_hour])
+                start_end_set.update({hour for hour in range(start_hour, end_hour + 1)})
+                lifespan = pd.concat(
+                    objs=(lifespan,
+                          pd.Series((pd.to_datetime(event_end_times, format='%Y-%m-%d %H:%M:%S') -
+                                     pd.to_datetime(event_start_times,
+                                                    format='%Y-%m-%d %H:%M:%S')).total_seconds() / 60)))
             except:
-                start_time = int(event[0].split(":")[0].split(" ")[1])
-                end_time = int(event[1].split(":")[0].split(" ")[1])
-                start_end_list.append([start_time] + [end_time])
-                start_end_set.update({hour for hour in range(start_time, end_time + 1)})
+                start_hour = int(event[0].split(":")[0].split(" ")[1])
+                end_hour = int(event[1].split(":")[0].split(" ")[1])
+                start_end_list.append([start_hour] + [end_hour])
+                start_end_set.update({hour for hour in range(start_hour, end_hour + 1)})
+                lifespan = pd.concat(
+                    objs=(lifespan,
+                          pd.Series((pd.to_datetime(event[1], format='%Y-%m-%d %H:%M:%S') -
+                                     pd.to_datetime(event[0], format='%Y-%m-%d %H:%M:%S')).total_seconds() / 60)))
         start_end_set_list.append(list(start_end_set))
 
-    temp_df = pd.DataFrame(start_end_list, columns=['start_time', 'end_time'])
-    start_end_times_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
-    return start_end_times_df, start_end_set_list
-
-# def start_end_times_of_rules(dictionary):
-#     list = []
-#     for events in dictionary.values():
-#         for event in events:
-#             event_start_times = []
-#             event_end_times = []
-#             for appliance in event:
-#                 event_start_times.append(appliance[0])
-#                 event_end_times.append(appliance[1])
-#             start_time = int(min(event_start_times).split(":")[0].split(" ")[1])
-#             end_time = int(max(event_end_times).split(":")[0].split(" ")[1])
-#             list.append([start_time] + [end_time])
-#     temp_df = pd.DataFrame(list, columns = ['start_time', 'end_time'])
-#     start_end_times_df = temp_df.groupby(temp_df.columns.tolist(),as_index=False).size()
-#     return start_end_times_df
+    temp_df = pd.DataFrame(start_end_list, columns=['start_hour', 'end_hour'])
+    start_end_hours_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
+    lifespan = int(round(lifespan.quantile(LS_quantile), 0))
+    return start_end_hours_df, start_end_set_list, lifespan
 
 
-def SE_time_df(dataframe, TAT=0.1):
+def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
     """
 
     :param dataframe:
@@ -146,16 +141,18 @@ def SE_time_df(dataframe, TAT=0.1):
         max_day = max(max_day, max(int(key) + 1 for key in row["time"].keys()))
     for index, row in dataframe.iterrows():
         df = pd.DataFrame({'TotalAbsSupport': [0 for _ in range(24)], 'AbsSupport': [0 for _ in range(24)]})
-        start_end_df, day_hours_list = start_end_times_of_rules(row["time"])
+        start_end_df, day_hours_list, lifespan = start_end_times_of_rules(row["time"], LS_quantile)
         for end_index, start_end in start_end_df.iterrows():
-            for hour in range(start_end['start_time'], start_end['end_time'] + 1):
+            for hour in range(start_end['start_hour'], start_end['end_hour'] + 1):
                 df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']
         for day_hours in day_hours_list:
             df.loc[day_hours, 'AbsSupport'] = df.loc[day_hours, 'AbsSupport'] + 1
         df['EventCount'] = sum([len(events) for events in row['time'].values()])
         df['ExternalUtility'] = row['supp']
         df['RelSupport'] = df['AbsSupport'] / max_day
-        df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1, 0) #df['TotalAbsSupport'] / df['EventCount']
+        df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1,
+                                         0)  # df['TotalAbsSupport'] / df['EventCount']
+        df['Lifespan'] = lifespan
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
 
@@ -164,5 +161,3 @@ def redundancy_filter_tool(dataframe, regex_str='MB[\w]*>[\w]*MB', multi_floor=T
     return dataframe.loc[(dataframe['pattern'].str.findall(regex_str).map(len) > 0) &
                          (dataframe['multi_floor'] == multi_floor) &
                          (dataframe['rule'] == rule_type)]
-
-

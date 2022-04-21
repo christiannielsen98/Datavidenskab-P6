@@ -27,6 +27,7 @@ def find_interval(quantile=0.9):
 
 
 print(find_interval())
+print(SE_time_df(json_to_dataframe(year=1, level=1, with_redundancy=False)))
 print(find_average_power_consumption_per_minute())
 
 NZERTF, meta, production = Db.load_data(meta=True, production=True, year=1, with_redundancy=False, hourly=False)
