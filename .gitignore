@@ -139,3 +139,4 @@ Pipfile.lock
 /Project/_04TPMAlgorithm/TPM/main.py
 /Project/_04TPMAlgorithm/TPM/README.md
 /Project/_04TPMAlgorithm/TPM/output/
+.DS_Store
