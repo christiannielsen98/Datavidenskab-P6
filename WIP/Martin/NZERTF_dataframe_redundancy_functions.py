@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 
 from Project._01PreprocessData.data_cleaning import data_cleaner
 from Project.Database import Db
@@ -135,109 +136,36 @@ def create_redundancy_dataframes():
     return redundancy_df_dict
 
 
-def estimate_power_consumptions(NZERTF, meta_rows):
-    consumer = meta_rows['Consumer_Match'][0]
-    print(consumer)
-    print(NZERTF.loc[lambda self: self[consumer] > 0, consumer].quantile(0.9))
-
-    # Consumption estimate dataframes
-
-    prev_CE = None
-    CE = None
-
-    for status_att in meta_rows.index:
-        rows = NZERTF.loc[lambda self: self[status_att] == 1]
-        index = pd.MultiIndex.from_frame(
-            pd.DataFrame(zip([status_att] * rows.shape[0], rows.index.tolist()), columns=['first', 'second']))
-        rows.set_index(index, inplace=True)
-        if prev_CE is None:
-            prev_CE = rows[consumer]
-            CE = rows[consumer].div(rows[meta_rows.index.tolist()].sum(1))
-
-        else:
-            prev_CE = pd.concat(objs=(prev_CE, rows[consumer]), axis=0)
-            CE = pd.concat(objs=(CE, rows[consumer].div(rows[meta_rows.index.tolist()].sum(1))), axis=0)
-
-    prev_consumption = prev_CE.groupby('first').mean()
-    current_consumption = CE.groupby('first').mean()
-
-    dist_condition = (lambda prev, current: np.linalg.norm(prev.values - current.values) > 1)
-
-    minimum_consumption = max(NZERTF.loc[lambda self: self[consumer] > 0, consumer].min(), 10)
-
-    while dist_condition(prev_consumption, current_consumption):
-        prev_CE = CE.copy()
-        CE = None
-
-        for status_att in meta_rows.index:
-            rows = NZERTF.loc[lambda self: self[status_att] == 1]
-            index = pd.MultiIndex.from_frame(
-                pd.DataFrame(zip([status_att] * rows.shape[0], rows.index.tolist()), columns=['first', 'second']))
-            rows.set_index(index, inplace=True)
-            if CE is None:
-                CE = rows[consumer].multiply(
-                    prev_consumption[status_att]).div(rows[meta_rows.index.tolist()].multiply(prev_consumption).sum()).map(
-                    lambda self: max(self, minimum_consumption))
-
-            else:
-                CE = pd.concat(objs=(CE, rows[consumer].multiply(
-                    prev_consumption[status_att]).div(rows[meta_rows.index.tolist()].multiply(prev_consumption).sum()).map(
-                    lambda self: max(self, minimum_consumption))))
-
-                current_consumption = CE.groupby('first').mean()
-                prev_consumption = prev_CE.groupby('first').mean()
-
-                print(current_consumption.sum())
-                print(current_consumption)
-                print('')
-
-    return current_consumption
-
-
-def find_average_power_consumption_per_minute():
+def find_average_power_consumption():
     """
     Estimates average power consumption per minute of NZERTF appliances into a dataframe
     :return: A dataframe of mean power consumption of NZERTF appliances
     """
-    consumption_dict = {}
+    NZERTF = pd.DataFrame()
+
     for year in [1, 2]:
-        consumption_dict[f'year{year}PowerConsumption(Wm)'] = pd.Series(dtype='float32')
-        # NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
-        NZERTF, NZERTF_meta = data_cleaner(hourly=False, year=year)
-        meta_data_status_rows = NZERTF_meta.loc[
-            lambda self: (self['Units'] == 'BinaryStatus') & (~self['Consumer_Match'].isna())]
+        # tmp_NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
+        tmp_NZERTF, NZERTF_meta = data_cleaner(hourly=False, year=year)
+        NZERTF = pd.concat(objs=(NZERTF, tmp_NZERTF), axis=0)
 
-        for consumer in meta_data_status_rows['Consumer_Match'].unique():
-            meta_rows = meta_data_status_rows.loc[lambda self: self['Consumer_Match'] == consumer]
-            if meta_rows.shape[0] > 1:
-                consumption_dict[f'year{year}PowerConsumption(Wm)'] = pd.concat(objs=(
-                    consumption_dict[f'year{year}PowerConsumption(Wm)'],
-                    estimate_power_consumptions(NZERTF[meta_rows.index.tolist() + [consumer]], meta_rows)))
+    consumption_series = pd.Series(dtype='float32')
+    meta_data_status_rows = NZERTF_meta.loc[
+        lambda self: (self['Units'] == 'BinaryStatus') & (~self['Consumer_Match'].isna())]
 
-            else:
-                consumption_dict[f'year{year}PowerConsumption(Wm)'].loc[
-                    meta_rows.index.values[0]] = NZERTF.loc[
-                    lambda self: self[meta_rows.index.values[0]] == 1, meta_rows['Consumer_Match']].mean()[0]
-        # for status_row in meta_data_status_rows.itertuples():
-        #     dataframe = remove_zero_consumption(find_status_one(NZERTF, status_row.index), status_row)
-        #     dataframe_siblings_zero = find_status_siblings_zero(dataframe=dataframe,
-        #                                                         meta_data_status_rows=meta_data_status_rows,
-        #                                                         status_row=status_row, app_status_att=status_row.index)
-        #     if dataframe_siblings_zero.shape[0] > 0:
-        #         consumption_dict[f'year{year}PowerConsumption(Wm)'].update({
-        #             status_row.index: dataframe_siblings_zero[status_row['Consumer_Match']].mean()
-        #         })
-        #     else:
-        #         consumption_dict[f'year{year}PowerConsumption(Wm)'].update({
-        #             status_row.index: dataframe[status_row['Consumer_Match']].div(dataframe[find_status_siblings(
-        #                 meta_data_status_rows=meta_data_status_rows, status_row=status_row,
-        #                 app_status_att=status_row.index)].sum(1) + 1).mean()
-        #         })
+    for consumer in meta_data_status_rows['Consumer_Match'].unique():
+        meta_rows = meta_data_status_rows.loc[lambda self: self['Consumer_Match'] == consumer]
+        df_copy = NZERTF[meta_rows.index.tolist() + meta_rows['Consumer_Match'].unique().tolist()].copy()
+        df_copy.dropna(inplace=True)
+        estimator = LinearRegression(fit_intercept=False, positive=True)
 
-    # consumption_df = pd.DataFrame(consumption_dict)
+        estimator.fit(X=df_copy[meta_rows.index.tolist()], y=df_copy[meta_rows['Consumer_Match'][0]])
+        consumption_series = pd.concat(objs=(
+            consumption_series,
+            pd.Series(dict(zip(meta_rows.index.tolist(), estimator.coef_)))
+        ))
 
-    return pd.DataFrame(consumption_dict).round()
+    return pd.DataFrame(consumption_series, columns=['PowerConsumption']).round()
 
 
 if __name__ == '__main__':
-    print(find_average_power_consumption_per_minute())
+    print(find_average_power_consumption())
