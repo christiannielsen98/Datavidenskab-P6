@@ -144,8 +144,8 @@ def find_average_power_consumption():
     NZERTF = pd.DataFrame()
 
     for year in [1, 2]:
-        # tmp_NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
-        tmp_NZERTF, NZERTF_meta = data_cleaner(hourly=False, year=year)
+        tmp_NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
+        # tmp_NZERTF, NZERTF_meta = data_cleaner(hourly=False, year=year)
         NZERTF = pd.concat(objs=(NZERTF, tmp_NZERTF), axis=0)
 
     consumption_series = pd.Series(dtype='float32')

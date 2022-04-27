@@ -152,6 +152,7 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
         df['RelSupport'] = df['AbsSupport'] / max_day
         df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1,
                                          0)  # df['TotalAbsSupport'] / df['EventCount']
+        df['Flexibility'] = df['TimeAssociation'].mean()
         df['Lifespan'] = lifespan
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
