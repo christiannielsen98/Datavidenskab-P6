@@ -168,4 +168,4 @@ def find_average_power_consumption_per_minute():
 
 
 if __name__ == '__main__':
-    print(find_average_power_consumption_per_minute())
+    print(create_redundancy_dataframes()['Year2']['Load_StatusPlugLoadIron'].sum())
