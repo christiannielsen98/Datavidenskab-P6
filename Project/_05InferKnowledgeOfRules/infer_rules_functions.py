@@ -87,6 +87,17 @@ def filter_rule_indexes(dataframe, level1, exclude_follows=True):
 
 
 def start_end_times_of_rules(dictionary, LS_quantile):
+    """
+    It takes a dictionary of events and returns a dataframe of the start and end hours of each event, a
+    list of the start and end hours of each event, and the lifespan of each event
+    
+    :param dictionary: the dictionary of events
+    :param LS_quantile: the quantile of the lifespan of the events that you want to use as the lifespan
+    of the events
+    :return: start_end_hours_df is a dataframe with the start and end hours of each event.
+    start_end_set_list is a list of lists of the start and end hours of each event.
+    lifespan is the lifespan of each event.
+    """
     start_end_list = []
     start_end_set_list = []
     lifespan = pd.Series(dtype='int32')
@@ -127,13 +138,22 @@ def start_end_times_of_rules(dictionary, LS_quantile):
 
 def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
     """
-
-    :param dataframe:
-    :type dataframe:
-    :param TAT: Time Associtaion Threshold
+    This function takes a dataframe of rules and returns a dataframe of rules that match the regex_str,
+    multi_floor, and rule_type parameters
+    
+    :param dataframe: the dataframe that contains the rules
+    :param TAT: Time Association Threshold
     :type TAT: fraction
-    :return:
-    :rtype:
+    :param LS_quantile: The quantile of the lifespan of the rule that you want to consider
+    :return: A dictionary of dataframes with the following columns:
+        - TotalAbsSupport
+        - AbsSupport
+        - EventCount
+        - ExternalUtility
+        - RelSupport
+        - TimeAssociation 
+        - Flexibility
+        - Lifespan
     """
     rule_dict = {}
     max_day = -1
