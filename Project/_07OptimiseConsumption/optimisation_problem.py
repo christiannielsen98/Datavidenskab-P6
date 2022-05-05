@@ -198,7 +198,7 @@ def optimise_house_df(house_df: pd.DataFrame):
     house_df[movable_appliances] = 0
     for app in movable_appliances:
         app_stats = all_app_stats[app]
-        energy_matrix = appliance_use_matrix(app_stats[0], app_stats[1][app], power_consum[app], [app])
+        energy_matrix = appliance_use_matrix(app_stats[0], app_stats[1][app], power_consum[[app]], [app])
         for day in house_df['Day'].unique():
             event_count = find_event_count(appliance=app, day_number=day)
             if event_count > 0:
