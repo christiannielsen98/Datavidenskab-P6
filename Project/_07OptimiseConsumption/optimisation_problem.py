@@ -101,7 +101,7 @@ def appliance_use_matrix(time_association_df: pd.DataFrame, lifespan: pd.Series,
         hour_slots = use_vec[lambda self: self > 0].shape[0]
 
     else:
-        use_matrix[use_order[0]] = place_hours(remaining=lifespan[use_order[0]][0])
+        use_matrix[use_order[0]] = place_hours(remaining=lifespan[use_order[0]])
         use_matrix[use_order[0]] = use_matrix[use_order[0]] * power_use[use_order[0]] / 1000
         use_list = use_matrix[use_order[0]].tolist()
         hour_slots = use_matrix[use_order[0]][lambda self: self > 0].shape[0]
@@ -198,9 +198,11 @@ def optimise_house_df(house_df: pd.DataFrame):
     house_df[movable_appliances] = 0
     for app in movable_appliances:
         app_stats = all_app_stats[app]
-        energy_matrix = appliance_use_matrix(app_stats[0], app_stats[1][app], power_consum[[app]], [app])
+        energy_matrix = appliance_use_matrix(time_association_df=app_stats[0],
+                                             lifespan=app_stats[1].loc['Lifespan'],
+                                             power_use=power_consum[[app]], use_order=[app])
         for day in house_df['Day'].unique():
-            event_count = find_event_count(appliance=app, day_number=day)
+            event_count = find_event_count(pattern_df=pattern_df, appliance=app, day_number=day)
             if event_count > 0:
                 events = find_min_hour(energy_matrix=energy_matrix, day_number=day, number_of_events=event_count)
                 for column in events.columns:
@@ -226,4 +228,5 @@ def optimise_house_df(house_df: pd.DataFrame):
 # print(find_min_hour(energy_matrix=appliance_use_matrix(association, life, power,
 #                                                        ['Load_StatusClothesWasher', 'Load_StatusDryerPowerTotal']),
 #                     day_number=5, number_of_events=2))
-print(optimise_house_df(year2))
+optimised_year2 = optimise_house_df(year2)
+print(optimised_year2)
