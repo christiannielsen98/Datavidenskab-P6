@@ -164,7 +164,8 @@ def find_average_power_consumption_per_minute():
 
     consumption_df = pd.DataFrame(consumption_dict)
 
-    return pd.DataFrame({'PowerConsumption(Wm)': consumption_df.mean(1).round()})
+    return consumption_df.mean(1).round()
+
 
 
 if __name__ == '__main__':
