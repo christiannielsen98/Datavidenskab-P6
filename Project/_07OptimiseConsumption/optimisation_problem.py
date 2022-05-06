@@ -117,24 +117,21 @@ def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series,
     return energy_matrix
 
 
-def production_vector(production_vectors: pd.DataFrame, day_number: int = 0):
+def slice_emission_vector(production_vectors: pd.DataFrame, day_number: int = 0):
     return production_vectors.loc[production_vectors.index.get_level_values(level=0).unique().tolist()[day_number]]
 
 
-def find_min_hour(energy_matrix: pd.DataFrame, day_number: int, number_of_events: int):
-    production = Db.load_data(consumption=False, production=True, year=2)
-    production_vectors = production.groupby([production.index.strftime('%Y-%m-%d'), production.index.hour]).sum()[
-        'CO2(Grams)/kWh']
-    emission_vector = production_vector(production_vectors, day_number)
+def find_min_hour(energy_matrix: pd.DataFrame, emission_vector, day_number: int, number_of_events: int):
+    sliced_emission_vector = slice_emission_vector(emission_vector, day_number)
 
     return_df = pd.DataFrame()
     if number_of_events == 1:
-        event = energy_matrix.T.dot(emission_vector)[lambda self: self == self.min()].head(1)
+        event = energy_matrix.T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(1)
         index = event.index.tolist()[0]
-        return_df[index] = energy_matrix[index].multiply(emission_vector)
+        return_df[index] = energy_matrix[index].multiply(sliced_emission_vector)
         return return_df
     elif number_of_events > 1:
-        events = energy_matrix.T.dot(emission_vector)[lambda self: self == self.min()].head(1)
+        events = energy_matrix.T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(1)
 
         condition = (lambda df:
                      (df.sum(0) != df.T.dot(np.where(pd.DataFrame(df[events.index.tolist()]).max(1) > 0, 1, 0))))
@@ -147,13 +144,13 @@ def find_min_hour(energy_matrix: pd.DataFrame, day_number: int, number_of_events
                 energy_matrix.loc[:,
                 (lambda self:
                  condition(self) &
-                 condition2(self, events.index.tolist()))].T.dot(emission_vector)[lambda self: self == self.min()].head(
+                 condition2(self, events.index.tolist()))].T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(
                     1)
             )
             )
 
         for index in events.index:
-            return_df[index] = energy_matrix[index].multiply(emission_vector)
+            return_df[index] = energy_matrix[index].multiply(sliced_emission_vector)
         return return_df
 
 
@@ -184,7 +181,7 @@ def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str):
     return house_df
 
 
-def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, movable_appliances: list,
+def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission_vector: pd.DataFrame, movable_appliances: list,
                       dependant_apps_rules: list):
     pattern_app_stats = SE_time_df(pattern_df)
     all_app_stats = load_app_stats(pattern_app_stats)
@@ -196,7 +193,7 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, movable_
             in_rule = False
             for rule in dependant_apps_rules:
                 if app in rule:
-                    in_rule=True
+                    in_rule = True
                     if '->' in rule:
                         use_order = rule.split('->')
                         rule_app_stats = []
@@ -222,7 +219,7 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, movable_
             for day in house_df['Day'].unique():
                 event_count = find_event_count(pattern_df=pattern_df, appliance=app, day_number=day)
                 if event_count > 0:
-                    events = find_min_hour(energy_matrix=energy_matrix, day_number=day, number_of_events=event_count)
+                    events = find_min_hour(energy_matrix=energy_matrix, emission_vector=emission_vector, day_number=day, number_of_events=event_count)
                     for column in events.columns:
                         for index, emission in events.loc[lambda self: self[column] > 0, column].iteritems():
                             house_df.loc[
@@ -233,28 +230,15 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, movable_
     return house_df
 
 
-# level1_json_df = json_to_dataframe(year=2, level=1, exclude_follows=True, with_redundancy=False)
-# level1_app_stats = SE_time_df(level1_json_df)
-# temp_var = load_app_stats(level1_app_stats)
-# clothes_washer = temp_var['Load_StatusClothesWasher']
-# dryer = temp_var['Load_StatusDryerPowerTotal']
-# association = pd.concat(objs=(dryer[0], clothes_washer[0]),
-#                         axis=1)
-# life = pd.concat(objs=(dryer[1]['Load_StatusDryerPowerTotal'],
-#                        clothes_washer[1]['Load_StatusClothesWasher']),
-#                  axis=1).loc['Timespan']
-# power = energy_consumption()[['Load_StatusDryerPowerTotal', 'Load_StatusClothesWasher']]
-# print(appliance_use_matrix(association, life, power, ['Load_StatusDryerPowerTotal', 'Load_StatusClothesWasher']))
-# print(find_min_hour(energy_matrix=appliance_use_matrix(association, life, power,
-#                                                        ['Load_StatusClothesWasher', 'Load_StatusDryerPowerTotal']),
-#                     day_number=5, number_of_events=2))
-
-
 year2 = Db.load_data(year=2, hourly=False)[['Timestamp'] + movable_appliances]
 
 year2 = hourly_house_df(year2, aggregate_func='max')
 
+production = Db.load_data(consumption=False, production=True, year=2)
+production = production.groupby([production.index.strftime('%Y-%m-%d'), production.index.hour]).sum()[
+    'CO2(Grams)/kWh']
+
 pattern_df = json_to_dataframe(year=2, level=1, exclude_follows=True, with_redundancy=False)
-optimised_year2 = optimise_house_df(house_df=year2, pattern_df=pattern_df, movable_appliances=movable_appliances,
+optimised_year2 = optimise_house_df(house_df=year2, pattern_df=pattern_df, emission_vector=production, movable_appliances=movable_appliances,
                                     dependant_apps_rules=['Load_StatusClothesWasher->Load_StatusDryerPowerTotal'])
 print(optimised_year2)
