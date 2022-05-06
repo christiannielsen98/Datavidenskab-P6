@@ -89,18 +89,18 @@ def filter_rule_indexes(dataframe, level1, exclude_follows=True):
 def start_end_times_of_rules(dictionary, LS_quantile):
     """
     It takes a dictionary of events and returns a dataframe of the start and end hours of each event, a
-    list of the start and end hours of each event, and the lifespan of each event
+    list of the start and end hours of each event, and the timespan of each event
     
     :param dictionary: the dictionary of events
-    :param LS_quantile: the quantile of the lifespan of the events that you want to use as the lifespan
+    :param LS_quantile: the quantile of the timespan of the events that you want to use as the timespan
     of the events
     :return: start_end_hours_df is a dataframe with the start and end hours of each event.
     start_end_set_list is a list of lists of the start and end hours of each event.
-    lifespan is the lifespan of each event.
+    timespan is the timespan of each event.
     """
     start_end_list = []
     start_end_set_list = []
-    lifespan = pd.Series(dtype='int32')
+    timespan = pd.Series(dtype='int32')
     for day in dictionary.values():
         start_end_set = set()
         for event in day:
@@ -114,8 +114,8 @@ def start_end_times_of_rules(dictionary, LS_quantile):
                 end_hour = int(max(event_end_times).split(":")[0].split(" ")[1])
                 start_end_list.append([start_hour] + [end_hour])
                 start_end_set.update({hour for hour in range(start_hour, end_hour + 1)})
-                lifespan = pd.concat(
-                    objs=(lifespan,
+                timespan = pd.concat(
+                    objs=(timespan,
                           pd.Series((pd.to_datetime(event_end_times, format='%Y-%m-%d %H:%M:%S') -
                                      pd.to_datetime(event_start_times,
                                                     format='%Y-%m-%d %H:%M:%S')).total_seconds() / 60)))
@@ -124,16 +124,16 @@ def start_end_times_of_rules(dictionary, LS_quantile):
                 end_hour = int(event[1].split(":")[0].split(" ")[1])
                 start_end_list.append([start_hour] + [end_hour])
                 start_end_set.update({hour for hour in range(start_hour, end_hour + 1)})
-                lifespan = pd.concat(
-                    objs=(lifespan,
+                timespan = pd.concat(
+                    objs=(timespan,
                           pd.Series((pd.to_datetime(event[1], format='%Y-%m-%d %H:%M:%S') -
                                      pd.to_datetime(event[0], format='%Y-%m-%d %H:%M:%S')).total_seconds() / 60)))
         start_end_set_list.append(list(start_end_set))
 
     temp_df = pd.DataFrame(start_end_list, columns=['start_hour', 'end_hour'])
     start_end_hours_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
-    lifespan = int(round(lifespan.quantile(LS_quantile), 0))
-    return start_end_hours_df, start_end_set_list, lifespan
+    timespan = int(round(timespan.quantile(LS_quantile), 0))
+    return start_end_hours_df, start_end_set_list, timespan
 
 
 def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
@@ -144,7 +144,7 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
     :param dataframe: the dataframe that contains the rules
     :param TAT: Time Association Threshold
     :type TAT: fraction
-    :param LS_quantile: The quantile of the lifespan of the rule that you want to consider
+    :param LS_quantile: The quantile of the timespan of the rule that you want to consider
     :return: A dictionary of dataframes with the following columns:
         - TotalAbsSupport
         - AbsSupport
@@ -153,7 +153,7 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
         - RelSupport
         - TimeAssociation 
         - Flexibility
-        - Lifespan
+        - Timespan
     """
     rule_dict = {}
     max_day = -1
@@ -161,7 +161,7 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
         max_day = max(max_day, max(int(key) + 1 for key in row["time"].keys()))
     for index, row in dataframe.iterrows():
         df = pd.DataFrame({'TotalAbsSupport': [0 for _ in range(24)], 'AbsSupport': [0 for _ in range(24)]})
-        start_end_df, day_hours_list, lifespan = start_end_times_of_rules(row["time"], LS_quantile)
+        start_end_df, day_hours_list, timespan = start_end_times_of_rules(row["time"], LS_quantile)
         for end_index, start_end in start_end_df.iterrows():
             for hour in range(start_end['start_hour'], start_end['end_hour'] + 1):
                 df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']
@@ -172,8 +172,8 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
         df['RelSupport'] = df['AbsSupport'] / max_day
         df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1,
                                          0)  # df['TotalAbsSupport'] / df['EventCount']
-        df['Flexibility'] = df['TimeAssociation'].mean()
-        df['Lifespan'] = lifespan
+        df['Timespan'] = timespan
+        df['Flexibility'] = df['TimeAssociation'].sum() * 60 / df['Timespan'][0]
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
 

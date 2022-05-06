@@ -10,7 +10,7 @@ movable_appliances = ['Load_StatusApplianceDishwasher', 'Load_StatusPlugLoadVacu
 
 
 def extract_temporal_constraints(df, app):
-    return [pd.DataFrame({app: df['TimeAssociation']}), pd.DataFrame({app: df[['Lifespan', 'Flexibility']].max(0)})]
+    return [pd.DataFrame({app: df['TimeAssociation']}), pd.DataFrame({app: df[['Timespan', 'Flexibility']].max(0)})]
 
 
 def load_app_stats(loaded_stats: dict):
@@ -69,27 +69,27 @@ def place_cheap_appliance(remaining, hour_range, exp_vector):
     return cheap_use_vector
 
 
-def appliance_use_matrix(time_association_df: pd.DataFrame, lifespan: pd.Series, power_use: pd.Series, use_order: list):
+def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series, power_use: pd.Series, use_order: list):
     power_use.sort_values(ascending=False,
                           inplace=True)
     time_association = time_association_df.max(1)
-    lifespan = lifespan / 60
+    timespan = timespan / 60
     use_matrix = pd.DataFrame(columns=use_order,
                               index=range(24)).fillna(0)
     if len(power_use.index) > 1:
         exp_app = power_use.index[0]
         cheap_app = power_use.index[1]
         if use_order.index(exp_app) == 0:
-            use_matrix[exp_app] = place_hours(remaining=lifespan[exp_app])
-            use_matrix[cheap_app] = place_hours(remaining=lifespan[cheap_app],
+            use_matrix[exp_app] = place_hours(remaining=timespan[exp_app])
+            use_matrix[cheap_app] = place_hours(remaining=timespan[cheap_app],
                                                 first=False,
                                                 exp_vector=use_matrix[exp_app])
         else:
-            start_row = int(np.ceil(lifespan[lambda self: self.index[:use_order.index(exp_app)]].sum()))
-            use_matrix[exp_app] = place_hours(remaining=lifespan[exp_app],
+            start_row = int(np.ceil(timespan[lambda self: self.index[:use_order.index(exp_app)]].sum()))
+            use_matrix[exp_app] = place_hours(remaining=timespan[exp_app],
                                               start_row=start_row,
                                               first=False)
-            use_matrix[cheap_app] = place_hours(remaining=lifespan[cheap_app],
+            use_matrix[cheap_app] = place_hours(remaining=timespan[cheap_app],
                                                 exp_vector=use_matrix[exp_app])
 
         use_matrix[exp_app] = use_matrix[exp_app] * power_use[exp_app] / 1000
@@ -101,7 +101,7 @@ def appliance_use_matrix(time_association_df: pd.DataFrame, lifespan: pd.Series,
         hour_slots = use_vec[lambda self: self > 0].shape[0]
 
     else:
-        use_matrix[use_order[0]] = place_hours(remaining=lifespan[use_order[0]])
+        use_matrix[use_order[0]] = place_hours(remaining=timespan[use_order[0]])
         use_matrix[use_order[0]] = use_matrix[use_order[0]] * power_use[use_order[0]] / 1000
         use_list = use_matrix[use_order[0]].tolist()
         hour_slots = use_matrix[use_order[0]][lambda self: self > 0].shape[0]
@@ -184,32 +184,52 @@ def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str):
     return house_df
 
 
-year2 = Db.load_data(year=2, hourly=False)[['Timestamp'] + movable_appliances]
-
-year2 = hourly_house_df(year2, aggregate_func='max')
-
-
-def optimise_house_df(house_df: pd.DataFrame):
-    pattern_df = json_to_dataframe(year=2, level=1, exclude_follows=True, with_redundancy=False)
+def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, movable_appliances: list,
+                      dependant_apps_rules: list):
     pattern_app_stats = SE_time_df(pattern_df)
     all_app_stats = load_app_stats(pattern_app_stats)
     power_consum = power_consumption()
-    house_df = year2.copy()
     house_df[movable_appliances] = 0
+    placed_apps = []
     for app in movable_appliances:
-        app_stats = all_app_stats[app]
-        energy_matrix = appliance_use_matrix(time_association_df=app_stats[0],
-                                             lifespan=app_stats[1].loc['Lifespan'],
-                                             power_use=power_consum[[app]], use_order=[app])
-        for day in house_df['Day'].unique():
-            event_count = find_event_count(pattern_df=pattern_df, appliance=app, day_number=day)
-            if event_count > 0:
-                events = find_min_hour(energy_matrix=energy_matrix, day_number=day, number_of_events=event_count)
-                for column in events.columns:
-                    for index, emission in events.loc[lambda self: self[column] > 0, column].iteritems():
-                        house_df.loc[
-                            lambda self: (self['Day'] == day) & (self['Hour'] == index), 'Emission'] += emission
-                        house_df.loc[lambda self: (self['Day'] == day) & (self['Hour'] == index), app] = 1
+        if app not in placed_apps:
+            in_rule = False
+            for rule in dependant_apps_rules:
+                if app in rule:
+                    in_rule=True
+                    if '->' in rule:
+                        use_order = rule.split('->')
+                        rule_app_stats = []
+                        for rule_app in use_order:
+                            rule_app_stats.append(all_app_stats[rule_app])
+                        time_association_df = pd.concat(objs=[rule_app[0] for rule_app in rule_app_stats], axis=1)
+                        timespan = pd.concat(objs=[
+                            rule_app[1][use_order[index]] for index, rule_app in enumerate(rule_app_stats)
+                        ], axis=1).loc['Timespan']
+                        power_use = power_consum[use_order]
+                        break
+
+            if not in_rule:
+                app_stats = all_app_stats[app]
+                time_association_df = app_stats[0]
+                timespan = app_stats[1].loc['Timespan']
+                power_use = power_consum[[app]]
+                use_order = [app]
+
+            energy_matrix = appliance_use_matrix(time_association_df=time_association_df,
+                                                 timespan=timespan,
+                                                 power_use=power_use, use_order=use_order)
+            for day in house_df['Day'].unique():
+                event_count = find_event_count(pattern_df=pattern_df, appliance=app, day_number=day)
+                if event_count > 0:
+                    events = find_min_hour(energy_matrix=energy_matrix, day_number=day, number_of_events=event_count)
+                    for column in events.columns:
+                        for index, emission in events.loc[lambda self: self[column] > 0, column].iteritems():
+                            house_df.loc[
+                                lambda self: (self['Day'] == day) & (self['Hour'] == index), 'Emission'] += emission
+                            house_df.loc[lambda self: (self['Day'] == day) & (self['Hour'] == index), app] = 1
+            placed_apps += use_order
+
     return house_df
 
 
@@ -222,11 +242,19 @@ def optimise_house_df(house_df: pd.DataFrame):
 #                         axis=1)
 # life = pd.concat(objs=(dryer[1]['Load_StatusDryerPowerTotal'],
 #                        clothes_washer[1]['Load_StatusClothesWasher']),
-#                  axis=1).loc['Lifespan']
+#                  axis=1).loc['Timespan']
 # power = energy_consumption()[['Load_StatusDryerPowerTotal', 'Load_StatusClothesWasher']]
 # print(appliance_use_matrix(association, life, power, ['Load_StatusDryerPowerTotal', 'Load_StatusClothesWasher']))
 # print(find_min_hour(energy_matrix=appliance_use_matrix(association, life, power,
 #                                                        ['Load_StatusClothesWasher', 'Load_StatusDryerPowerTotal']),
 #                     day_number=5, number_of_events=2))
-optimised_year2 = optimise_house_df(year2)
+
+
+year2 = Db.load_data(year=2, hourly=False)[['Timestamp'] + movable_appliances]
+
+year2 = hourly_house_df(year2, aggregate_func='max')
+
+pattern_df = json_to_dataframe(year=2, level=1, exclude_follows=True, with_redundancy=False)
+optimised_year2 = optimise_house_df(house_df=year2, pattern_df=pattern_df, movable_appliances=movable_appliances,
+                                    dependant_apps_rules=['Load_StatusClothesWasher->Load_StatusDryerPowerTotal'])
 print(optimised_year2)
