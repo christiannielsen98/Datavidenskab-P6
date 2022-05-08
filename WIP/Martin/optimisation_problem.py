@@ -150,10 +150,6 @@ def find_min_hour(energy_matrix: pd.DataFrame, emission_vector, day_number: int,
         return return_df
 
 
-def find_event_count(pattern_df: pd.DataFrame, day_number: str = '0') -> int:
-    return len(pattern_df['time'][day_number])
-
-
 def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str) -> pd.DataFrame:
     house_df['Day'] = house_df['Timestamp'].dt.dayofyear
     house_df['Day'] = house_df['Day'] - house_df['Day'][0]
