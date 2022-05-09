@@ -133,14 +133,14 @@ def create_redundancy_dataframes():
     return redundancy_df_dict
 
 
-def find_average_power_consumption_per_minute():
+def find_average_power_consumption():
     """
-    Estimates average power consumption per minute of NZERTF appliances into a dataframe
+    Estimates average power consumption of NZERTF appliances into a dataframe
     :return: A dataframe of mean power consumption of NZERTF appliances
     """
     consumption_dict = {}
     for year in [1, 2]:
-        consumption_dict[f'year{year}PowerConsumption(Wm)'] = consumption_dict.get(f'year{year}PowerConsumption(Wm)',
+        consumption_dict[f'year{year}PowerConsumption'] = consumption_dict.get(f'year{year}PowerConsumption',
                                                                                    {})
         NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
         meta_data_status_rows = NZERTF_meta.loc[
@@ -152,11 +152,11 @@ def find_average_power_consumption_per_minute():
                                                                 meta_data_status_rows=meta_data_status_rows,
                                                                 status_row=status_row, app_status_att=app_status_att)
             if dataframe_siblings_zero.shape[0] > 0:
-                consumption_dict[f'year{year}PowerConsumption(Wm)'].update({
+                consumption_dict[f'year{year}PowerConsumption'].update({
                     app_status_att: dataframe_siblings_zero[status_row['Consumer_Match']].mean()
                 })
             else:
-                consumption_dict[f'year{year}PowerConsumption(Wm)'].update({
+                consumption_dict[f'year{year}PowerConsumption'].update({
                     app_status_att: dataframe[status_row['Consumer_Match']].div(dataframe[find_status_siblings(
                         meta_data_status_rows=meta_data_status_rows, status_row=status_row,
                         app_status_att=app_status_att)].sum(1) + 1).mean()

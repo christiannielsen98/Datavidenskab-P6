@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from Project.Database import Db
-from Project._03FeatureSelection.NZERTF_dataframe_redundancy_functions import find_average_power_consumption_per_minute
+from Project._03FeatureSelection.NZERTF_dataframe_redundancy_functions import find_average_power_consumption
 from Project._05InferKnowledgeOfRules.infer_rules_functions import SE_time_df, json_to_dataframe
 
 
@@ -18,7 +18,7 @@ def load_app_stats(loaded_stats: dict) -> dict:
 
 
 def power_consumption(movable_appliances: list) -> pd.Series:
-    return find_average_power_consumption_per_minute()[movable_appliances]
+    return find_average_power_consumption()[movable_appliances]
 
 
 def place_hours(remaining, start_row=0, first=True, exp_vector=None) -> pd.Series:
