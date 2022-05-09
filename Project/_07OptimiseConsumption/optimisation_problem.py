@@ -145,8 +145,7 @@ def find_min_hour(energy_matrix: pd.DataFrame, emission_vector, day_number: int,
                  condition2(self, events.index.tolist()))].T.dot(sliced_emission_vector)[
                     lambda self: self == self.min()].head(
                     1)
-            )
-            )
+            ))
 
         for index in events.index:
             return_df[index] = energy_matrix[index].multiply(sliced_emission_vector)

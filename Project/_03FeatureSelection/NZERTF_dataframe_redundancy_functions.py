@@ -96,10 +96,10 @@ def create_redundancy_dataframes():
              (~self.index.str.contains('SensHeat')) &
              (~self.index.isin(
                  ['Load_StatusApplianceCooktop', 'Load_StatusApplianceDishwasher', 'Load_StatusApplianceOven',
-                  'Load_StatusApplianceRangeHood', 'Load_StatusLatentload', 'Load_StatusPlugLoadCoffeeMaker',
-                  'Load_StatusPlugLoadSlowCooker', 'Load_StatusPlugLoadToaster', 'Load_StatusPlugLoadToasterOven',
-                  'Load_StatusClothesWasher', 'Load_StatusDryerPowerTotal', 'Load_StatusRefrigerator',
-                  'Load_StatusHeatPumpWaterHeater'])) &
+                  'Load_StatusMicrowave', 'Load_StatusApplianceRangeHood', 'Load_StatusLatentload',
+                  'Load_StatusPlugLoadCoffeeMaker', 'Load_StatusPlugLoadSlowCooker', 'Load_StatusPlugLoadToaster',
+                  'Load_StatusPlugLoadToasterOven', 'Load_StatusClothesWasher', 'Load_StatusDryerPowerTotal',
+                  'Load_StatusRefrigerator', 'Load_StatusHeatPumpWaterHeater'])) &
              (self['Subsystem'] == 'Loads'))]
 
         for app_status_att, row in appliance_status.iterrows():
@@ -141,7 +141,7 @@ def find_average_power_consumption():
     consumption_dict = {}
     for year in [1, 2]:
         consumption_dict[f'year{year}PowerConsumption'] = consumption_dict.get(f'year{year}PowerConsumption',
-                                                                                   {})
+                                                                               {})
         NZERTF, NZERTF_meta = Db.load_data(meta=True, hourly=False, year=year)
         meta_data_status_rows = NZERTF_meta.loc[
             lambda self: (self['Units'] == 'BinaryStatus') & (~self['Consumer_Match'].isna())]
@@ -167,6 +167,26 @@ def find_average_power_consumption():
     return consumption_df.mean(1).round()
 
 
+def remove_redundant_power_consumption_from_data():
+    power_consumption = find_average_power_consumption()
+    NZERTF_redundancy = create_redundancy_dataframes()
+    for year in [1, 2]:
+        status_columns = NZERTF_redundancy[f'Year{year}'].columns[1:].tolist()
+
+        NZERTF, NZERTF_meta = Db.load_data(hourly=False, meta=True, year=year)
+
+        NZERTF[status_columns] = NZERTF.where(NZERTF_redundancy[f'Year{year}'][status_columns] == 0)[
+            status_columns].fillna(0)
+
+        for status_att, meta_row in NZERTF_meta.loc[status_columns].iterrows():
+            for index, row in NZERTF.loc[NZERTF_redundancy[f'Year{year}'][status_att] == 1].iterrows():
+                temp_var = NZERTF.loc[index, meta_row['Consumer_Match']] - power_consumption[status_att]
+                temp_var = max(NZERTF_meta.loc[meta_row['Consumer_Match'], 'Standby_Power'], temp_var)
+                NZERTF.loc[index, meta_row['Consumer_Match']] = temp_var
+
+        Db.pickle_dataframe(NZERTF, f"All-Subsystems-minute-year{year}_no_redundancy.pkl")
+
 
 if __name__ == '__main__':
-    print(create_redundancy_dataframes()['Year2']['Load_StatusPlugLoadIron'].sum())
+    remove_redundant_power_consumption_from_data()
+    # print(create_redundancy_dataframes()['Year2']['Load_StatusPlugLoadIron'].sum())
