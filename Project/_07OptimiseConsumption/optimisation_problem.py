@@ -18,7 +18,7 @@ def load_app_stats(loaded_stats: dict, movable_appliances: list) -> dict:
     return app_stats
 
 
-def power_consumption(movable_appliances: list) -> pd.Series:
+def power_consumption_vector(movable_appliances: list) -> pd.Series:
     return find_average_power_consumption()[movable_appliances]
 
 
@@ -172,8 +172,12 @@ def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str) -> pd.DataFrame
     house_df['Timestamp'] = pd.to_datetime(house_df['Timestamp'].dt.strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
     if aggregate_func == 'max':
         house_df = house_df.groupby(['Day', 'Hour']).max()
+    elif aggregate_func == 'min':
+        house_df = house_df.groupby(['Day', 'Hour']).min()
     elif aggregate_func == 'sum':
         house_df = house_df.groupby(['Day', 'Hour']).sum()
+    elif aggregate_func == 'mean':
+        house_df = house_df.groupby(['Day', 'Hour']).mean()
     house_df.reset_index(inplace=True)
     house_df['Emission'] = 0
     return house_df
@@ -186,7 +190,7 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission
                                    LS_quantile=0.9)
     all_app_stats = load_app_stats(loaded_stats=pattern_app_stats,
                                    movable_appliances=movable_appliances)
-    power_consum = power_consumption(movable_appliances=movable_appliances)
+    power_consum = power_consumption_vector(movable_appliances=movable_appliances)
     house_df[movable_appliances] = 0
     placed_apps = []
     for app in movable_appliances:
