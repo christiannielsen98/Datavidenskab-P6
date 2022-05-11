@@ -133,7 +133,7 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission
                       movable_appliances: list, dependant_apps_rules: list) -> pd.DataFrame:
     pattern_app_stats = SE_time_df(dataframe=pattern_df,
                                    TAT=0.1,
-                                   LS_quantile=0.9)
+                                   TS_quantile=0.9)
     all_app_stats = load_app_stats(loaded_stats=pattern_app_stats)
     power_consum = power_consumption(movable_appliances=movable_appliances)
     house_df[movable_appliances] = 0

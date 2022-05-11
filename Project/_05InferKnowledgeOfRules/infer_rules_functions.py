@@ -86,13 +86,13 @@ def filter_rule_indexes(dataframe, level1, exclude_follows=True):
     return dataframe
 
 
-def start_end_times_of_rules(dictionary, LS_quantile):
+def start_end_times_of_rules(dictionary: dict, TS_method: str, TS_quantile: float):
     """
     It takes a dictionary of events and returns a dataframe of the start and end hours of each event, a
     list of the start and end hours of each event, and the timespan of each event
     
     :param dictionary: the dictionary of events
-    :param LS_quantile: the quantile of the timespan of the events that you want to use as the timespan
+    :param TS_quantile: the quantile of the timespan of the events that you want to use as the timespan
     of the events
     :return: start_end_hours_df is a dataframe with the start and end hours of each event.
     start_end_set_list is a list of lists of the start and end hours of each event.
@@ -132,11 +132,14 @@ def start_end_times_of_rules(dictionary, LS_quantile):
 
     temp_df = pd.DataFrame(start_end_list, columns=['start_hour', 'end_hour'])
     start_end_hours_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
-    timespan = int(round(timespan.quantile(LS_quantile), 0))
+    if TS_method=='quantile':
+        timespan = int(round(timespan.quantile(TS_quantile), 0))
+    elif TS_method=='mean':
+        timespan = int(round(timespan.mean(), 0))
     return start_end_hours_df, start_end_set_list, timespan
 
 
-def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
+def SE_time_df(dataframe, TAT=0.1, TS_method='quantile', TS_quantile=0.9):
     """
     This function takes a dataframe of rules and returns a dataframe of rules that match the regex_str,
     multi_floor, and rule_type parameters
@@ -144,7 +147,7 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
     :param dataframe: the dataframe that contains the rules
     :param TAT: Time Association Threshold
     :type TAT: fraction
-    :param LS_quantile: The quantile of the timespan of the rule that you want to consider
+    :param TS_quantile: The quantile of the timespan of the rule that you want to consider
     :return: A dictionary of dataframes with the following columns:
         - TotalAbsSupport
         - AbsSupport
@@ -161,7 +164,8 @@ def SE_time_df(dataframe, TAT=0.1, LS_quantile=0.9):
         max_day = max(max_day, max(int(key) + 1 for key in row["time"].keys()))
     for index, row in dataframe.iterrows():
         df = pd.DataFrame({'TotalAbsSupport': [0 for _ in range(24)], 'AbsSupport': [0 for _ in range(24)]})
-        start_end_df, day_hours_list, timespan = start_end_times_of_rules(row["time"], LS_quantile)
+        start_end_df, day_hours_list, timespan = start_end_times_of_rules(dictionary=row["time"], TS_method=TS_method,
+                                                                          TS_quantile=TS_quantile)
         for end_index, start_end in start_end_df.iterrows():
             for hour in range(start_end['start_hour'], start_end['end_hour'] + 1):
                 df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']

@@ -174,7 +174,7 @@ def remove_redundant_power_consumption_from_data():
         status_columns = NZERTF_redundancy[f'Year{year}'].columns[1:].tolist()
 
         NZERTF, NZERTF_meta = Db.load_data(hourly=False, meta=True, year=year)
-
+        temp_df = NZERTF.copy()
         NZERTF[status_columns] = NZERTF.where(NZERTF_redundancy[f'Year{year}'][status_columns] == 0)[
             status_columns].fillna(0)
 
@@ -184,7 +184,22 @@ def remove_redundant_power_consumption_from_data():
                 temp_var = max(NZERTF_meta.loc[meta_row['Consumer_Match'], 'Standby_Power'], temp_var)
                 NZERTF.loc[index, meta_row['Consumer_Match']] = temp_var
 
-        Db.pickle_dataframe(NZERTF, f"All-Subsystems-minute-year{year}_no_redundancy.pkl")
+        consumers = Db.load_data(hourly=False, meta=True, consumption=False, year=year).loc[lambda self: (~self['Consumer_Match'].isna()), 'Consumer_Match'].tolist()
+        temp_df['year'] = temp_df['Timestamp'].dt.year
+        temp_df['month'] = temp_df['Timestamp'].dt.month
+        temp_df['day'] = temp_df['Timestamp'].dt.day
+        temp_df['hour'] = temp_df['Timestamp'].dt.hour
+        temp_df = temp_df.groupby(['year', 'month', 'day', 'hour']).mean()
+        temp_df['Consumption'] = temp_df[consumers].div(1000).sum(1)
+        NZERTF['year'] = NZERTF['Timestamp'].dt.year
+        NZERTF['month'] = NZERTF['Timestamp'].dt.month
+        NZERTF['day'] = NZERTF['Timestamp'].dt.day
+        NZERTF['hour'] = NZERTF['Timestamp'].dt.hour
+        NZERTF = NZERTF.groupby(['year', 'month', 'day', 'hour']).mean()
+        NZERTF['Consumption'] = NZERTF[consumers].div(1000).sum(1)
+        print(temp_df['Consumption'].sum() - NZERTF['Consumption'].sum())
+    return temp_df['Consumption'], NZERTF['Consumption']
+        # Db.pickle_dataframe(NZERTF, f"All-Subsystems-minute-year{year}_no_redundancy.pkl")
 
 
 if __name__ == '__main__':
