@@ -21,48 +21,18 @@ def power_consumption(movable_appliances: list) -> pd.Series:
     return find_average_power_consumption()[movable_appliances]
 
 
-def place_hours(remaining, start_row=0, first=True, exp_vector=None) -> pd.Series:
-    app_life_ceiled = int(np.ceil(remaining))
-
-    if exp_vector is None:
-        hour_range = list(range(start_row,
-                                start_row + app_life_ceiled))
-        if not first:
-            hour_range = hour_range[::-1]
-        use_vector = place_expensive_appliance(remaining, hour_range)
+def place_hours(duration, first, second=None) -> pd.Series:
+    if second is None:
+        use_list = list(1 for _ in range(int(duration[first]) + 1))
+        if duration != int(duration[first]):
+            use_list + duration % int(duration[first])
+        use_list = use_list
+        return_df = pd.DataFrame({'normal': use_list, 'reversed': use_list[::-1]}, index = range(23)).fillna(0)
 
     else:
-        if first:
-            end = exp_vector[lambda self: self > 0].index[0]
-            hour_range = list(range(0, end + 1))
-            hour_range = hour_range[::-1]
-        else:
-            start = exp_vector[lambda self: self > 0].index[-1]
-            hour_range = list(range(start, 24))
-
-        use_vector = place_cheap_appliance(remaining, hour_range, exp_vector)
-
-    return use_vector
 
 
-def place_expensive_appliance(remaining, hour_range) -> pd.Series:
-    exp_use_vector = pd.Series(dtype='float64', index=range(24)).fillna(0)
-    for hour in hour_range:
-        exp_use_vector[hour] = min(remaining, 1)
-        remaining = max(remaining - 1, 0)
-        if remaining == 0:
-            break
-    return exp_use_vector
-
-
-def place_cheap_appliance(remaining, hour_range, exp_vector) -> pd.Series:
-    cheap_use_vector = pd.Series(dtype='float64', index=range(24)).fillna(0)
-    for hour in hour_range:
-        cheap_use_vector[hour] = min(remaining, 1) - exp_vector[hour]
-        remaining = max(remaining - (1 - exp_vector[hour]), 0)
-        if remaining == 0:
-            break
-    return cheap_use_vector
+    return return_df
 
 
 def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series, power_use: pd.Series,
@@ -74,31 +44,22 @@ def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series,
     use_matrix = pd.DataFrame(columns=use_order,
                               index=range(24)).fillna(0)
     if len(power_use.index) > 1:
-        exp_app = power_use.index[0]
-        cheap_app = power_use.index[1]
-        if use_order.index(exp_app) == 0:
-            use_matrix[exp_app] = place_hours(remaining=timespan[exp_app])
-            use_matrix[cheap_app] = place_hours(remaining=timespan[cheap_app],
-                                                first=False,
-                                                exp_vector=use_matrix[exp_app])
-        else:
-            start_row = int(np.ceil(timespan[lambda self: self.index[:use_order.index(exp_app)]].sum()))
-            use_matrix[exp_app] = place_hours(remaining=timespan[exp_app],
-                                              start_row=start_row,
-                                              first=False)
-            use_matrix[cheap_app] = place_hours(remaining=timespan[cheap_app],
-                                                exp_vector=use_matrix[exp_app])
+        first_app = use_order[0]
+        second_app = use_order[1]
+        use_matrix[first_app], use_matrix[second_app] = place_hours(duration=timespan,
+                                                                    first=first_app,
+                                                                    second=second_app)
 
-        use_matrix[exp_app] = use_matrix[exp_app] * power_use[exp_app] / 1000
-        use_matrix[cheap_app] = use_matrix[cheap_app] * power_use[cheap_app] / 1000
-        use_vec = pd.concat(objs=(use_matrix[exp_app],
-                                  use_matrix[cheap_app]),
+        use_matrix[first_app] = use_matrix[first_app] * power_use[first_app] / 1000
+        use_matrix[second_app] = use_matrix[second_app] * power_use[second_app] / 1000
+        use_vec = pd.concat(objs=(use_matrix[first_app],
+                                  use_matrix[second_app]),
                             axis=1).sum(1)
         use_list = use_vec.tolist()
         hour_slots = use_vec[lambda self: self > 0].shape[0]
 
     else:
-        use_matrix[use_order[0]] = place_hours(remaining=timespan[use_order[0]])
+        use_matrix[use_order[0]] = place_hours(duration=timespan[use_order[0]])
         use_matrix[use_order[0]] = use_matrix[use_order[0]] * power_use[use_order[0]] / 1000
         use_list = use_matrix[use_order[0]].tolist()
         hour_slots = use_matrix[use_order[0]][lambda self: self > 0].shape[0]
