@@ -1,5 +1,8 @@
+from typing import Dict, Any, Tuple, Union, List
+
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 
 from Project.Database import Db
 from Project._03FeatureSelection.NZERTF_dataframe_redundancy_functions import find_average_power_consumption
@@ -21,94 +24,195 @@ def power_consumption(movable_appliances: list) -> pd.Series:
     return find_average_power_consumption()[movable_appliances]
 
 
-def place_hours(duration, first, second=None) -> pd.Series:
-    if second is None:
-        use_list = list(1 for _ in range(int(duration[first]) + 1))
-        if duration != int(duration[first]):
-            use_list + duration % int(duration[first])
-        use_list = use_list
-        return_df = pd.DataFrame({'normal': use_list, 'reversed': use_list[::-1]}, index = range(23)).fillna(0)
+def place_hours(duration: dict, use_order: list) -> dict:
+    return_dict = {}
+    total_duration = sum([duration[app] for app in use_order])
 
+    if len(use_order) > 1:
+        if total_duration == int(total_duration):
+            use_order_lists = [use_order]
+        else:
+            use_order_lists = [use_order, use_order[::-1]]
+
+        for uo in use_order_lists:
+            prev_use_list = None
+            for number, app in enumerate(uo):
+                if number == 0:
+                    use_list = list(1 for _ in range(int(duration[app])))
+                    if duration[app] != int(duration[app]):
+                        use_list.append(round(duration[app] % int(duration[app]), 4))
+
+                else:
+                    dur = duration[app]
+                    if prev_use_list[-1] != 1:
+                        use_list = list(0 for _ in range(len(prev_use_list) - 1))
+                        use_list.append(round(min(dur, 1 - prev_use_list[-1]), 4))
+                        dur = round(max(dur - use_list[-1], 0), 4)
+
+                    else:
+                        use_list = list(0 for _ in range(len(prev_use_list)))
+
+                    if dur > 1:
+                        use_list = use_list + list(1 for _ in range(int(dur)))
+                        dur -= int(dur)
+
+                    if dur > 0:
+                        use_list.append(round(dur, 4))
+
+                key = 'normal' if uo[-1] == use_order[-1] else 'reverse'
+                return_dict[key] = return_dict.get(key, {})
+
+                return_dict[key].update({
+                    app: use_list
+                })
+                prev_use_list = use_list
+
+        prev_use_list = []
+        for number, app in enumerate(use_order):
+            return_dict['normal'][app] = return_dict['normal'][app] + [0 for _ in
+                                                                       range(24 - len(return_dict['normal'][app]))]
+
+            if 'reverse' in return_dict.keys():
+                if number == 0:
+                    return_dict['reverse'][app] = [val for val in return_dict['reverse'][app][::-1] if val != 0]
+                    prev_use_list = return_dict['reverse'][app]
+
+                else:
+                    if prev_use_list[-1] == 1:
+                        use_list = [0 for _ in range(len(prev_use_list))]
+
+                    else:
+                        use_list = [0 for _ in range(len(prev_use_list) - 1)]
+
+                    return_dict['reverse'][app] = use_list + [val for val in return_dict['reverse'][app][::-1] if
+                                                              val != 0]
+                    prev_use_list = return_dict['reverse'][app]
+
+                return_dict['reverse'][app] = return_dict['reverse'][app] + [0 for _ in range(
+                    24 - len(return_dict['reverse'][app]))]
     else:
+        app = use_order[0]
+        use_list = list(1 for _ in range(int(duration[app])))
+        if duration[app] != int(duration[app]):
+            use_list.append(round(duration[app] % int(duration[app]), 4))
+            return_dict['reverse'] = {
+                app: use_list[::-1] + [0 for _ in range(24 - len(use_list))]
+            }
 
+        return_dict['normal'] = {
+            app: use_list + [0 for _ in range(24 - len(use_list))]
+        }
 
-    return return_df
+    return_dict.update({
+        'normal': pd.DataFrame(return_dict['normal'])
+    })
+
+    if 'reverse' in return_dict.keys():
+        return_dict.update({
+            'reverse': pd.DataFrame(return_dict['reverse'])
+        })
+
+    return return_dict
 
 
 def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series, power_use: pd.Series,
-                         use_order: list) -> pd.DataFrame:
+                         use_order: list) -> tuple[pd.DataFrame, dict[pd.DataFrame, pd.DataFrame]]:
     power_use.sort_values(ascending=False,
                           inplace=True)
     time_association = time_association_df.max(1)
     timespan = timespan / 60
-    use_matrix = pd.DataFrame(columns=use_order,
-                              index=range(24)).fillna(0)
-    if len(power_use.index) > 1:
-        first_app = use_order[0]
-        second_app = use_order[1]
-        use_matrix[first_app], use_matrix[second_app] = place_hours(duration=timespan,
-                                                                    first=first_app,
-                                                                    second=second_app)
 
-        use_matrix[first_app] = use_matrix[first_app] * power_use[first_app] / 1000
-        use_matrix[second_app] = use_matrix[second_app] * power_use[second_app] / 1000
-        use_vec = pd.concat(objs=(use_matrix[first_app],
-                                  use_matrix[second_app]),
-                            axis=1).sum(1)
-        use_list = use_vec.tolist()
-        hour_slots = use_vec[lambda self: self > 0].shape[0]
+    energy_use_dict = {}
+    hour_slots_dict = {}
 
+    use_matrix_dict = place_hours(duration=timespan,
+                                  use_order=use_order)
+
+    for key, df in use_matrix_dict.items():
+        energy_use_dict[key] = df.multiply(power_use[use_order]).div(1000).sum(1).to_list()
+        hour_slots_dict[key] = df[lambda self: self.sum(1) > 0].shape[0]
+
+    energy_matrix_dict = {}
+    app_use_matrix_dict = {}
+    start = 0
+    for key, use_list in energy_use_dict.items():
+        temp_energy_dict = {}
+        for n in range(24 + 1 - hour_slots_dict[key]):
+            rotate_list = [use_list[(i - n) % len(use_list)] for i, x in enumerate(use_list)]
+            temp_energy_dict.update({(n + start): rotate_list})
+        energy_matrix_dict[key] = pd.DataFrame(temp_energy_dict).fillna(0)
+        for app in use_order:
+            temp_use_dict = {}
+            for n in range(24 + 1 - hour_slots_dict[key]):
+                rotate_list = [use_matrix_dict[key][app].tolist()[(i - n) % len(use_list)] for i, x in
+                               enumerate(use_list)]
+                temp_use_dict.update({(n + start): rotate_list})
+            app_use_matrix_dict[app] = app_use_matrix_dict.get(app, {})
+            app_use_matrix_dict[app][key] = pd.DataFrame(temp_use_dict).fillna(0)
+        start += energy_matrix_dict[key].shape[1]
+
+    app_status_dict = {}
+    if 'reverse' in energy_matrix_dict.keys():
+        energy_matrix = pd.concat(objs=list(energy_matrix_dict.values()), axis=1)
+        for app in use_order:
+            app_status_dict[app] = pd.concat(objs=list(app_use_matrix_dict[app].values()), axis=1)
     else:
-        use_matrix[use_order[0]] = place_hours(duration=timespan[use_order[0]])
-        use_matrix[use_order[0]] = use_matrix[use_order[0]] * power_use[use_order[0]] / 1000
-        use_list = use_matrix[use_order[0]].tolist()
-        hour_slots = use_matrix[use_order[0]][lambda self: self > 0].shape[0]
+        energy_matrix = energy_matrix_dict['normal']
+        for app in use_order:
+            app_status_dict[app] = app_use_matrix_dict[app]
 
-    temp_dict = {}
-    for n in range(24 + 1 - hour_slots):
-        rotate_list = [use_list[(i - n) % len(use_list)] for i, x in enumerate(use_list)]
-        temp_dict.update({n: rotate_list})
+    energy_matrix = energy_matrix.loc[:, (lambda self: (self.sum(0).round(4) == self.T.dot(
+        time_association).round(4)))]  # Selects only the hours that is time associated
 
-    energy_matrix = pd.DataFrame(temp_dict).fillna(0)
-    energy_matrix = energy_matrix.loc[:, lambda self: self.sum(0) == self.T.dot(
-        time_association)]  # Selects only the hours that is time associated
-    return energy_matrix
+    for app in use_order:
+        app_status_dict[app] = app_status_dict[app][energy_matrix.columns.tolist()]
+
+    return energy_matrix, app_status_dict
 
 
 def slice_emission_vector(production_vectors: pd.DataFrame, day_number: int = 0) -> pd.Series:
     return production_vectors.loc[production_vectors.index.get_level_values(level=0).unique().tolist()[day_number]]
 
 
-def find_min_hour(energy_matrix: pd.DataFrame, emission_vector, day_number: int, number_of_events: int):
+def find_min_hour(energy_matrix: pd.DataFrame, app_status_dict, emission_vector, day_number: int,
+                  number_of_events: int):
     sliced_emission_vector = slice_emission_vector(emission_vector, day_number)
 
     return_df = pd.DataFrame()
+    events = energy_matrix.T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(1)
     if number_of_events == 1:
-        event = energy_matrix.T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(1)
-        index = event.index.tolist()[0]
+        index = events.index.tolist()[0]
         return_df[index] = energy_matrix[index].multiply(sliced_emission_vector)
-        return return_df
-    elif number_of_events > 1:
-        events = energy_matrix.T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(1)
 
+        for app in app_status_dict:
+            app_status_dict[app] = app_status_dict[app][events.index]
+
+        return return_df, app_status_dict
+
+    elif number_of_events > 1:
         condition = (lambda df:
-                     (df.sum(0) != df.T.dot(np.where(pd.DataFrame(df[events.index.tolist()]).max(1) > 0, 1, 0))))
+                     (df.sum(0) != df.T.dot(
+                         np.where(pd.DataFrame(df[events.index.tolist()]).max(1) > 0, 1, 0))))
+
         condition2 = (lambda df, events_index:
                       (df.loc[events_index] == 0).min(0))
 
         for _ in range(number_of_events - 1):
             events = pd.concat(objs=(
                 events,
-                energy_matrix.loc[:,
-                (lambda self:
-                 condition(self) &
-                 condition2(self, events.index.tolist()))].T.dot(sliced_emission_vector)[
+                energy_matrix.loc[:, (lambda self:
+                                      condition(self) &
+                                      condition2(self, events.index.tolist()))].T.dot(sliced_emission_vector)[
                     lambda self: self == self.min()].head(1)
             ))
 
         for index in events.index:
             return_df[index] = energy_matrix[index].multiply(sliced_emission_vector)
-        return return_df
+
+        for app in app_status_dict:
+            app_status_dict[app] = app_status_dict[app][events.index.tolist()]
+
+        return return_df, app_status_dict
 
 
 def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str) -> pd.DataFrame:
@@ -165,25 +269,29 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission
                 power_use = power_consum[[app]]
                 use_order = [app]
 
-            energy_matrix = appliance_use_matrix(time_association_df=time_association_df,
-                                                 timespan=timespan,
-                                                 power_use=power_use,
-                                                 use_order=use_order)
+            energy_matrix, app_status_dict = appliance_use_matrix(time_association_df=time_association_df,
+                                                                  timespan=timespan,
+                                                                  power_use=power_use,
+                                                                  use_order=use_order)
 
             for day in pattern_events.keys():
                 event_count = len(pattern_events[day])
+                events, statuses = find_min_hour(energy_matrix=energy_matrix.copy(),
+                                                 app_status_dict=app_status_dict.copy(),
+                                                 emission_vector=emission_vector,
+                                                 day_number=int(day),
+                                                 number_of_events=event_count)
 
-                if event_count > 0:
-                    events = find_min_hour(energy_matrix=energy_matrix,
-                                           emission_vector=emission_vector,
-                                           day_number=int(day),
-                                           number_of_events=event_count)
-                    for column in events.columns:
-                        for index, emission in events.loc[lambda self: self[column] > 0, column].iteritems():
-                            house_df.loc[(lambda self: (self['Day'] == int(day)) &
-                                                       (self['Hour'] == index)), 'Emission'] += emission
-                            house_df.loc[(lambda self: (self['Day'] == int(day)) &
-                                                       (self['Hour'] == index)), app] = 1
+                for column in events.columns:
+                    for index, emission in events.loc[lambda self: self[column] > 0, column].iteritems():
+                        house_df.loc[(lambda self: (self['Day'] == int(day)) &
+                                                   (self['Hour'] == index)), 'Emission'] += emission
+                        for appliance in statuses.keys():
+                            app_status = pd.Series(dtype='float')
+                            for col in statuses[appliance].columns:
+                                app_status = pd.concat(objs=(app_status, statuses[appliance][col]))
+                            house_df.loc[(lambda self: (self['Day'] == int(day))), appliance] = app_status
+
             placed_apps += use_order
 
     return house_df
@@ -229,4 +337,12 @@ def NZERTF_optimiser(year: int = 2) -> pd.DataFrame:
 
 
 if __name__ == '__main__':
-    print(NZERTF_optimiser())
+    # rangee = [1 for _ in range(6)] + [0 for _ in range(12)] + [1 for _ in range(6)]
+    # appliance_use_matrix(time_association_df=pd.DataFrame({'app1': rangee, 'app2': rangee, 'app3': rangee}),
+    #                            timespan=pd.Series({'app1': 135, 'app2': 79, 'app3': 60}),
+    #                            power_use=pd.Series({'app1': 121, 'app2': 1205, 'app3': 3308}),
+    #                            use_order=['app1', 'app2', 'app3'])
+    # print(place_hours(duration={'app1': 3.33, 'app2': 1.45, 'app3': 1},
+    #                   use_order=['app1', 'app2', 'app3']))
+    NZERTF_optimised = NZERTF_optimiser()
+    print(NZERTF_optimised)
