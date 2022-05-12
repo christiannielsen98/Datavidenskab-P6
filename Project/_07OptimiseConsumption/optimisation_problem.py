@@ -184,10 +184,10 @@ def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str) -> pd.DataFrame
 
 
 def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission_vector: pd.DataFrame,
-                      movable_appliances: list, dependant_apps_rules: list) -> pd.DataFrame:
+                      movable_appliances: list, dependant_apps_rules: list, TS_method:str='mean', TS_quantile:float=0.9) -> pd.DataFrame:
     pattern_app_stats = SE_time_df(dataframe=pattern_df,
-                                   TAT=0.1,
-                                   LS_quantile=0.9)
+                                   TAT=0.1, TS_method=TS_method,
+                                   TS_quantile=TS_quantile)
     all_app_stats = load_app_stats(loaded_stats=pattern_app_stats,
                                    movable_appliances=movable_appliances)
     power_consum = power_consumption_vector(movable_appliances=movable_appliances)
@@ -267,7 +267,7 @@ def NZERTF_optimiser(year: int = 2) -> pd.DataFrame:
     pattern_df = json_to_dataframe(year=year,
                                    level=1,
                                    exclude_follows=True,
-                                   with_redundancy=False)
+                                   with_redundancy=False).loc[lambda self: self['pattern'].isin(movable_appliances)]
 
     optimised_NZERTF_house = optimise_house_df(house_df=NZERTF_house.copy(),
                                                pattern_df=pattern_df,
