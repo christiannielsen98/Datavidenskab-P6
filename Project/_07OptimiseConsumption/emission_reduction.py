@@ -1,7 +1,9 @@
 import pandas as pd
 
 from Project.Database import Db
-from optimisation_problem import hourly_house_df, slice_emission_vector, power_consumption_vector, NZERTF_optimiser
+from Project._05InferKnowledgeOfRules.infer_rules_functions import json_to_dataframe
+from Project._07OptimiseConsumption.optimisation_problem import hourly_house_df, slice_emission_vector, \
+    power_consumption, optimise_house_df
 
 
 def find_emissions(df, emission_vec):
@@ -21,55 +23,50 @@ def emission_reduction(year: int = 2):
 
     consumers = meta.tolist()
 
-    power_consumption = power_consumption_vector(movable_appliances=movable_appliances)
+    power_consumption_vector = power_consumption(movable_appliances=movable_appliances)
 
     # with redundancy <- w.r
     # without redundancy <- w.o.r
-    # movable appliances unoptimised <- m.a.u.o
-    # movable appliances optimised <- m.a.o
+    # movable appliances optimisation <- m.a.o
     NZERTF_optimisation = {
         'w.r': Db.load_data(year=year, hourly=False),
         'w.o.r': Db.load_data(year=year, hourly=False, with_redundancy=False)
     }
 
-    NZERTF_optimisation.update({
-        'm.a.u.o': NZERTF_optimisation['w.o.r'].copy()[['Timestamp'] + movable_appliances]
-    })
+    production = Db.load_data(consumption=False,
+                              production=True,
+                              year=year)
 
-    timestamps = pd.to_datetime(
-        NZERTF_optimisation['w.r']['Timestamp'].dt.strftime('%Y-%m-%d %H').unique(),
-        format='%Y-%m-%d %H')
+    production = production.groupby([production.index.strftime('%Y-%m-%d'),
+                                     production.index.hour]).max()['CO2(g/Wh)']
 
-    production = Db.load_data(
-        consumption=False,
-        production=True,
-        year=year)['CO2(Grams)/kWh'][lambda self: self.index.isin(timestamps)]
-    production = production.groupby(pd.to_datetime(production.index.strftime('%Y-%m-%d %H'))).sum()
+    pattern_df = json_to_dataframe(year=year,
+                                   level=1,
+                                   exclude_follows=True,
+                                   with_redundancy=False)
+
+    pattern_df = pattern_df.loc[lambda self: self['pattern'].isin(movable_appliances)]
+
+    NZERTF_optimisation['m.a.o'] = optimise_house_df(house_df=NZERTF_optimisation['w.o.r'].copy()[['Timestamp'] + movable_appliances],
+                                                     pattern_df=pattern_df,
+                                                     emission_vector=production,
+                                                     movable_appliances=movable_appliances,
+                                                     dependant_apps_rules=[
+                                                         'Load_StatusClothesWasher->Load_StatusDryerPowerTotal'],
+                                                     power_consum=power_consumption_vector)
 
     for key, value in NZERTF_optimisation.items():
         df = value.copy()
         if all([att in df.columns for att in consumers]):
             df = hourly_house_df(house_df=df.copy(), aggregate_func='mean')
-            df['Consumption'] = df[consumers].div(1_000).sum(1)
+            df['Consumption'] = df[consumers].sum(1)
+            df['Emission'] = df['Consumption'].div(1_000).multiply(production.reset_index(drop=True))
             df.drop(labels=consumers, inplace=True, axis=1)
-        else:
-            df = hourly_house_df(house_df=df, aggregate_func='mean')
 
-            df['Consumption'] = df[movable_appliances].dot(power_consumption).div(1_000)
+            NZERTF_optimisation.update({
+                key: df
+            })
 
-        for day in df['Day'].unique():
-            df.loc[(lambda self: (self['Day'] == day)),
-                   'Emission'] = find_emissions(df=df.copy().loc[lambda self: self['Day'] == day],
-                                                emission_vec=slice_emission_vector(
-                                                    production_vectors=production,
-                                                    day_number=day))
-        NZERTF_optimisation.update({
-            key: df
-        })
-
-    NZERTF_optimisation.update({
-        'm.a.o': NZERTF_optimiser()
-    })
 
     NZERTF_emission = {}
 
@@ -77,4 +74,14 @@ def emission_reduction(year: int = 2):
         NZERTF_emission.update({
             key: NZERTF_optimisation[key]['Emission'].sum()
         })
+
+    NZERTF_emission['m.a.o'] = NZERTF_optimisation['m.a.o']['Emission'].sum()
+    NZERTF_emission['m.a.u.o'] = NZERTF_optimisation['m.a.o']['OldEmission'].sum()
+
     return NZERTF_optimisation, NZERTF_emission
+
+if __name__ == '__main__':
+    optimisation, emission = emission_reduction(year=2)
+    wr = optimisation['w.r']
+    wor = optimisation['w.o.r']
+    mao = optimisation['m.a.o']

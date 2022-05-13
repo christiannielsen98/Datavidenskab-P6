@@ -53,7 +53,7 @@ def create_production_dataframe(dataframe, filename):
 
 
 def find_co2_emissions(production):
-    production_source_df = DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(Grams)/BTU"])
+    production_source_df = DataFrame(columns=["EnergySource", "BTU/kWh", "CO2(g/BTU)"])
 
     production_source_df["EnergySource"] = production.columns.values
 
@@ -100,7 +100,7 @@ def find_co2_emissions(production):
     emission_df["KilogramsCO2PerMillionBtu"] = CO2_per_BTU["Kilograms CO2"]["Per Million Btu"].values
     emission_df = emission_df.loc[lambda self: self["KilogramsCO2PerMillionBtu"].str.contains("[0-9]+\\.[0-9]+")]
 
-    emission_df["CO2(Grams)/BTU"] = emission_df["KilogramsCO2PerMillionBtu"].astype("float") / 1e3
+    emission_df["CO2(g/BTU)"] = emission_df["KilogramsCO2PerMillionBtu"].astype("float") / 1e3
     emission_df.drop("KilogramsCO2PerMillionBtu", axis=1)
 
     column_matches_dict = {}
@@ -131,14 +131,14 @@ def find_co2_emissions(production):
         'Heavy Oil': column_translator_dict["Diesel"]
     })
 
-    production_source_df["CO2(Grams)/BTU"] = [
-        emission_df["CO2(Grams)/BTU"][column_translator_dict[source]] if source in co2_cols else 0 for source in
+    production_source_df["CO2(g/BTU)"] = [
+        emission_df["CO2(g/BTU)"][column_translator_dict[source]] if source in co2_cols else 0 for source in
         production_source_df["EnergySource"]]
 
-    production_source_df["CO2(Grams)/kWh"] = (
-            production_source_df["BTU/kWh"] * production_source_df["CO2(Grams)/BTU"]).astype("float").round(2)
+    production_source_df["CO2(g/Wh)"] = (
+            production_source_df["BTU/kWh"] * production_source_df["CO2(g/BTU)"]).div(1_000)
 
-    production["CO2(Grams)/kWh"] = production_source_df["CO2(Grams)/kWh"].T.values.dot(production.values.T)
+    production["CO2(g/Wh)"] = production_source_df["CO2(g/Wh)"].T.values.dot(production.values.T)
 
     return production
 

@@ -158,9 +158,10 @@ def start_end_times_of_rules(dictionary: dict):
     iqr = (timespan.quantile(.75) - timespan.quantile(.25))
     timespan_filtered = timespan[lambda self: self.between(self.quantile(.25) - 1.5 * iqr, self.quantile(.75) + 1.5 * iqr)]
 
-    timespan_max = int(round(timespan_filtered.max(), 0))
-    timespan_mean = int(round(timespan_filtered.mean(), 0))
-    return start_end_hours_df, start_end_set_list, timespan_max, timespan_mean
+    timespan_min = timespan_filtered.min()
+    timespan_max = timespan_filtered.max()
+    timespan_mean = timespan_filtered.mean()
+    return start_end_hours_df, start_end_set_list, timespan_min, timespan_max, timespan_mean
 
 
 def SE_time_df(dataframe, TAT=0.1):
@@ -188,7 +189,7 @@ def SE_time_df(dataframe, TAT=0.1):
         max_day = max(max_day, max(int(key) + 1 for key in row["time"].keys()))
     for index, row in dataframe.iterrows():
         df = pd.DataFrame({'TotalAbsSupport': [0 for _ in range(24)], 'AbsSupport': [0 for _ in range(24)]})
-        start_end_df, day_hours_list, timespan_max, timespan_mean = start_end_times_of_rules(dictionary=row["time"])
+        start_end_df, day_hours_list, timespan_min, timespan_max, timespan_mean = start_end_times_of_rules(dictionary=row["time"])
         for end_index, start_end in start_end_df.iterrows():
             for hour in range(start_end['start_hour'], start_end['end_hour'] + 1):
                 df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']
@@ -200,6 +201,7 @@ def SE_time_df(dataframe, TAT=0.1):
         df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1,
                                          0)  # df['TotalAbsSupport'] / df['EventCount']
         df['TimespanMean'] = timespan_mean
+        df['TimespanMin'] = timespan_min
         df['TimespanMax'] = timespan_max
         df['Flexibility'] = df['TimeAssociation'].sum() * 60 / df['TimespanMax'][0]
         rule_dict[row['pattern']] = df.copy()
