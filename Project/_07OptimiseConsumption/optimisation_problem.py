@@ -5,12 +5,31 @@ from Project._03FeatureSelection.NZERTF_dataframe_redundancy_functions import fi
 from Project._05InferKnowledgeOfRules.infer_rules_functions import SE_time_df, json_to_dataframe
 
 
-def extract_temporal_constraints(df, app) -> list:
+def extract_temporal_constraints(df: pd.DataFrame, app: str) -> list:
+    """
+    It takes a dataframe and an app name, and returns a list of two dataframes. The first dataframe contains the time
+    association of the app, and the second dataframe contains the timespan mean, timespan min, timespan max, and flexibility
+    of the app
+
+    :param df: the dataframe containing the data
+    :type df: pd.DataFrame
+    :param app: the name of the application
+    :type app: str
+    :return: A list of two dataframes.
+    """
     return [pd.DataFrame({app: df['TimeAssociation']}),
-            pd.DataFrame({app: df[['TimespanMean', 'TimespanMin', 'TimespanMax', 'Flexibility']].max(0)})]
+            pd.DataFrame({app: df[['TimespanMean', 'TimespanMin', 'TimespanMax', 'Flexibility']][0]})]
 
 
 def load_app_stats(loaded_stats: dict) -> dict:
+    """
+    > For each app, extract the temporal constraints from the dataframe of the app's stats
+
+    :param loaded_stats: a dictionary of dataframes, where each dataframe is the stats for a particular app
+    :type loaded_stats: dict
+    :return: A dictionary of dataframes, where the key is the app name and the value is the dataframe of temporal
+    constraints
+    """
     app_stats = {}
     for key, value in loaded_stats.items():
         app_stats.update({key: extract_temporal_constraints(df=value, app=key)})
@@ -18,10 +37,28 @@ def load_app_stats(loaded_stats: dict) -> dict:
 
 
 def power_consumption(movable_appliances: list) -> pd.Series:
+    """
+    It takes a list of movable appliances and returns the average power consumption of those appliances
+
+    :param movable_appliances: list of movable appliances
+    :type movable_appliances: list
+    :return: A series of the average power consumption of the movable appliances.
+    """
     return find_average_power_consumption()[movable_appliances]
 
 
 def place_hours(duration: pd.Series, use_order: list) -> dict:
+    """
+    It takes a list of appliances and their maximum duration, and returns a dictionary with two keys: 'normal' and
+    'reverse'. The 'normal' key contains a dataframe with the appliances as columns and the hours of the day as rows. The
+    'reverse' key contains the same dataframe, but with the hours of the day in reverse order
+
+    :param duration: a dataframe with the following columns:
+    :type duration: pd.Series
+    :param use_order: list of appliances to be used in the order they are to be used
+    :type use_order: list
+    :return: A dictionary with two keys: 'normal' and 'reverse'.
+    """
     return_dict = {}
     total_max_duration = sum([duration[app]['TimespanMax'] for app in use_order])
 
@@ -116,6 +153,21 @@ def place_hours(duration: pd.Series, use_order: list) -> dict:
 
 def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series, power_use: pd.Series,
                          use_order: list) -> tuple[pd.DataFrame, dict[pd.DataFrame, pd.DataFrame]]:
+    """
+    > The function takes a time association dataframe, a timespan series, a power use series, and a use order list, and
+    returns a tuple of an energy matrix dataframe and a dictionary of appliance status dataframes.
+
+    :param time_association_df: A dataframe with the time association of each appliance
+    :type time_association_df: pd.DataFrame
+    :param timespan: The time it takes to complete a cycle of the appliance
+    :type timespan: pd.Series
+    :param power_use: a series of the power use of each appliance
+    :type power_use: pd.Series
+    :param use_order: list of appliances in order of priority
+    :type use_order: list
+    :return: A tuple of two objects. The first is a dataframe of energy use in kWh. The second is a dictionary of dataframes
+    of appliance use.
+    """
     power_use.sort_values(ascending=False,
                           inplace=True)
     time_association = time_association_df.max(1)
@@ -172,38 +224,53 @@ def appliance_use_matrix(time_association_df: pd.DataFrame, timespan: pd.Series,
 
 
 def slice_emission_vector(production_vectors: pd.DataFrame, day_number: int = 0) -> pd.Series:
+    """
+    It takes a dataframe of production vectors and returns the production vector for the day specified by the day_number
+    argument
+
+    :param production_vectors: a dataframe of production vectors, with the index being a MultiIndex of (day, hour)
+    :type production_vectors: pd.DataFrame
+    :param day_number: the day number to slice the emission vector for, defaults to 0
+    :type day_number: int (optional)
+    :return: A series of the production vectors for the first day.
+    """
     return production_vectors.loc[production_vectors.index.get_level_values(level=0).unique().tolist()[day_number]]
 
 
 def find_min_hour(energy_matrix: pd.DataFrame, app_status_dict, emission_vector, day_number: int,
                   number_of_events: int):
+    """
+    It finds the minimum emission hour for a given day and returns the
+    emissions for that hour and the app status for that hour
+
+    :param energy_matrix: a dataframe of energy consumption for each appliance, for each hour of the day
+    :type energy_matrix: pd.DataFrame
+    :param app_status_dict: a dictionary of dataframes, where each dataframe is a matrix of the status of each appliance at
+    each hour of the day
+    :param emission_vector: a vector of emissions for each hour of the day
+    :param day_number: the day of the week you want to find the minimum emissions for
+    :type day_number: int
+    :param number_of_events: the number of events you want to schedule
+    :type number_of_events: int
+    :return: emissions is a dataframe with the emissions for each hour of the day.
+    app_status_dict is a dictionary with the status of each appliance for each hour of the day.
+    """
     sliced_emission_vector = slice_emission_vector(emission_vector, day_number)
 
     emissions = pd.DataFrame()
     events = energy_matrix.T.dot(sliced_emission_vector)[lambda self: self == self.min()].head(1)
 
     if number_of_events > 1:
-        condition = (lambda df:
-                     (df.T.dot(df[events.index.tolist()].max(1)) == 0))
-
-        condition2 = (lambda df:
-                      (df.loc[(events.index % 24).tolist()] == 0).min(0))
-
-        condition3 = (lambda app_status:
-                      app_status.sum(0) == app_status.T.dot(pd.concat(objs=(app_status.max(1),
-                                                                            app_status[events.index.tolist()].max(1)),
-                                                                      axis=1).sum(1) <= 1))
+        condition = (lambda app_status:
+                     app_status.sum(0) == app_status.T.dot(pd.concat(objs=(app_status.max(1),
+                                                                           app_status[events.index.tolist()].max(1)),
+                                                                     axis=1).sum(1) <= 1))
 
         for _ in range(number_of_events - 1):
             events = pd.concat(objs=(events,
                                      energy_matrix.loc[:,
-                                     condition3(app_status_dict[list(app_status_dict.keys())[0]])
-                                     # (condition3(app_status_dict[key]) for key in app_status_dict.keys()).all()
-                                     # (lambda self:
-                                     # & condition2(self)
-                                     # )
-                                     ].T.dot(sliced_emission_vector)[
-                                         lambda self: self == self.min()].head(1)))
+                                     condition(app_status_dict[list(app_status_dict.keys())[0]])].T.dot(
+                                         sliced_emission_vector)[lambda self: self == self.min()].head(1)))
 
         for index in events.index:
             emissions[index] = energy_matrix[index].multiply(sliced_emission_vector)
@@ -226,6 +293,16 @@ def find_min_hour(energy_matrix: pd.DataFrame, app_status_dict, emission_vector,
 
 
 def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str) -> pd.DataFrame:
+    """
+    It takes a dataframe of a house's energy consumption and returns a dataframe of the same house's energy consumption, but
+    with the data aggregated by hour
+
+    :param house_df: the dataframe of the house you want to aggregate
+    :type house_df: pd.DataFrame
+    :param aggregate_func: str
+    :type aggregate_func: str
+    :return: A dataframe with the aggregated values for each hour of the day.
+    """
     house_df['Timestamp'] = pd.to_datetime(house_df['Timestamp'].dt.strftime('%Y-%m-%d %H'), format='%Y-%m-%d %H')
     house_df = house_df.groupby('Timestamp')
     timestamps = pd.date_range(start=house_df.max().index.min(), end=house_df.max().index.max(), freq='H')
@@ -255,6 +332,17 @@ def hourly_house_df(house_df: pd.DataFrame, aggregate_func: str) -> pd.DataFrame
 
 
 def find_event_count(day: list, durations: pd.Series):
+    """
+    For each event in the day, check if the duration of the event is within the range of the durations dataframe. If it is,
+    add 1 to the event count
+
+    :param day: list of events for a single day
+    :type day: list
+    :param durations: a dataframe with two columns, TimespanMin and TimespanMax, which are the minimum and maximum duration
+    of an event
+    :type durations: pd.Series
+    :return: The number of events that are within the specified time range.
+    """
     event_count = 0
     for event in day:
         event_start = pd.to_datetime(event[0], format='%Y-%m-%d %H:%M:%S')
@@ -268,6 +356,25 @@ def find_event_count(day: list, durations: pd.Series):
 def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission_vector: pd.DataFrame,
                       movable_appliances: list, dependant_apps_rules: list,
                       power_consum: pd.Series = pd.Series(dtype='float')) -> pd.DataFrame:
+    """
+    It takes a house dataframe, a pattern dataframe, an emission vector, a list of movable appliances, a list of rules for
+    appliances that are dependant on each other, and a power consumption series, and returns a dataframe with the optimised
+    appliance use
+
+    :param house_df: The dataframe of the house you want to optimise
+    :type house_df: pd.DataFrame
+    :param pattern_df: This is the dataframe that contains the pattern data
+    :type pattern_df: pd.DataFrame
+    :param emission_vector: A dataframe with the emissions of each appliance
+    :type emission_vector: pd.DataFrame
+    :param movable_appliances: A list of the appliances that can be moved
+    :type movable_appliances: list
+    :param dependant_apps_rules: A list of rules for appliances that are dependant on each other
+    :type dependant_apps_rules: list
+    :param power_consum: A series of the power consumption of the appliances
+    :type power_consum: pd.Series
+    :return: A dataframe with the optimised appliance use and the old appliance use.
+    """
     pattern_app_stats = SE_time_df(dataframe=pattern_df,
                                    TAT=0.1)
 
@@ -345,6 +452,23 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission
 
 
 def NZERTF_optimiser(year: int = 2) -> pd.DataFrame:
+    """
+    It takes a house dataframe, a pattern dataframe, an emission vector, a list of movable appliances, a list of rules for
+    dependant appliances, and a power consumption vector, and returns an optimised house dataframe.
+
+    :param year: the year of the data to be optimised, defaults to 2
+    :type year: int (optional)
+    :return: A dataframe with the following columns:
+            - Timestamp
+            - Load_StatusClothesWasher
+            - Load_StatusDryerPowerTotal
+            - Load_StatusApplianceDishwasher
+            - Load_StatusPlugLoadVacuum
+            - Load_StatusPlugLoadIron
+            - Emission
+            - OldEmission
+            -
+    """
     movable_appliances = ['Load_StatusClothesWasher',
                           'Load_StatusDryerPowerTotal',
                           'Load_StatusApplianceDishwasher',
