@@ -7,8 +7,22 @@ import pandas as pd
 from Project.Database import Db
 from Project._04TPMAlgorithm.transform_for_TPM_algorithm import light_location_dict
 
+pd.options.display.max_colwidth = 200
+pd.options.display.max_rows = 500
+
 
 def json_to_dataframe(year, level, exclude_follows=True, with_redundancy=True):
+    """
+    It takes a year and a level, and returns a dataframe of the rules in that level
+
+    :param year: the year of the data you want to use
+    :param level: the level of the rules you want to extract
+    :param exclude_follows: If True, then the rules that are of the form "A follows B" are excluded, defaults to True
+    (optional)
+    :param with_redundancy: If True, the rules are not filtered for redundancy. If False, the rules are filtered for
+    redundancy, defaults to True (optional)
+    :return: A dataframe with the rules for a given level.
+    """
     redundancy = '' if with_redundancy else '_no_redundancy'
     json_file = json.load(
         open(Db.get_save_file_directory(
@@ -34,8 +48,16 @@ def json_to_dataframe(year, level, exclude_follows=True, with_redundancy=True):
 # extractions_from_time_post_TPM
 
 
-# Filter fules
+# Filter rules
 def filter_rule_indexes(dataframe, level1, exclude_follows=True):
+    """
+    It filters the rules in the dataframe to only include rules that have at least one appliance and are not level 1
+
+    :param dataframe: the dataframe that contains the rules
+    :param level1: True if you want to find level 1 rules, False if you want to find level 2 or 3 rules
+    :param exclude_follows: If True, the rules that have a follow in them will be excluded, defaults to True (optional)
+    :return: A dataframe with the rules that are not follows rules and have at least one appliance.
+    """
     meta = Db.load_data(meta=True, consumption=False, hourly=False)
     level_3_check = len(re.findall('\*', dataframe.loc[0, 'pattern'])) > 0
     rule_type = ['app_app_app', 'psn_app_app', 'psn_psn_app']
@@ -86,17 +108,17 @@ def filter_rule_indexes(dataframe, level1, exclude_follows=True):
     return dataframe
 
 
-def start_end_times_of_rules(dictionary: dict, TS_method: str, TS_quantile: float):
+def start_end_times_of_rules(dictionary: dict):
     """
-    It takes a dictionary of events and returns a dataframe of the start and end hours of each event, a
-    list of the start and end hours of each event, and the timespan of each event
-    
-    :param dictionary: the dictionary of events
-    :param TS_quantile: the quantile of the timespan of the events that you want to use as the timespan
-    of the events
+    It takes a dictionary of events and returns a dataframe of the start and end hours of each event, a list of the start
+    and end hours of each event, the maximum timespan of an event, and the mean timespan of an event
+
+    :param dictionary: a dictionary of lists of lists of lists of strings
+    :type dictionary: dict
     :return: start_end_hours_df is a dataframe with the start and end hours of each event.
-    start_end_set_list is a list of lists of the start and end hours of each event.
-    timespan is the timespan of each event.
+    start_end_set_list is a list of sets of the start and end hours of each event.
+    timespan_max is the maximum time span of an event.
+    timespan_mean is the mean time span of an event.
     """
     start_end_list = []
     start_end_set_list = []
@@ -132,40 +154,41 @@ def start_end_times_of_rules(dictionary: dict, TS_method: str, TS_quantile: floa
 
     temp_df = pd.DataFrame(start_end_list, columns=['start_hour', 'end_hour'])
     start_end_hours_df = temp_df.groupby(temp_df.columns.tolist(), as_index=False).size()
-    if TS_method=='quantile':
-        timespan = int(round(timespan.quantile(TS_quantile), 0))
-    elif TS_method=='mean':
-        timespan = int(round(timespan.mean(), 0))
-    return start_end_hours_df, start_end_set_list, timespan
+
+    iqr = (timespan.quantile(.75) - timespan.quantile(.25))
+    timespan_filtered = timespan[lambda self: self.between(self.quantile(.25) - 1.5 * iqr, self.quantile(.75) + 1.5 * iqr)]
+
+    timespan_max = int(round(timespan_filtered.max(), 0))
+    timespan_mean = int(round(timespan_filtered.mean(), 0))
+    return start_end_hours_df, start_end_set_list, timespan_max, timespan_mean
 
 
-def SE_time_df(dataframe, TAT=0.1, TS_method='quantile', TS_quantile=0.9):
+def SE_time_df(dataframe, TAT=0.1):
     """
-    This function takes a dataframe of rules and returns a dataframe of rules that match the regex_str,
-    multi_floor, and rule_type parameters
-    
+    It takes a dataframe of rules and returns a dictionary of dataframes, where each dataframe contains the time-related
+    metrics for each rule
+
     :param dataframe: the dataframe that contains the rules
-    :param TAT: Time Association Threshold
-    :type TAT: fraction
-    :param TS_quantile: The quantile of the timespan of the rule that you want to consider
+    :param TAT: The threshold for the time association
     :return: A dictionary of dataframes with the following columns:
-        - TotalAbsSupport
-        - AbsSupport
-        - EventCount
-        - ExternalUtility
-        - RelSupport
-        - TimeAssociation 
-        - Flexibility
-        - Timespan
+            - TotalAbsSupport
+            - AbsSupport
+            - EventCount
+            - ExternalUtility
+            - RelSupport
+            - TimeAssociation
+            - Flexibility
+            - TimspanMean
+            - TimespanMax
     """
+
     rule_dict = {}
     max_day = -1
     for index, row in dataframe.iterrows():
         max_day = max(max_day, max(int(key) + 1 for key in row["time"].keys()))
     for index, row in dataframe.iterrows():
         df = pd.DataFrame({'TotalAbsSupport': [0 for _ in range(24)], 'AbsSupport': [0 for _ in range(24)]})
-        start_end_df, day_hours_list, timespan = start_end_times_of_rules(dictionary=row["time"], TS_method=TS_method,
-                                                                          TS_quantile=TS_quantile)
+        start_end_df, day_hours_list, timespan_max, timespan_mean = start_end_times_of_rules(dictionary=row["time"])
         for end_index, start_end in start_end_df.iterrows():
             for hour in range(start_end['start_hour'], start_end['end_hour'] + 1):
                 df['TotalAbsSupport'][hour] = df['TotalAbsSupport'][hour] + start_end['size']
@@ -176,8 +199,9 @@ def SE_time_df(dataframe, TAT=0.1, TS_method='quantile', TS_quantile=0.9):
         df['RelSupport'] = df['AbsSupport'] / max_day
         df['TimeAssociation'] = np.where(df['AbsSupport'] / df['AbsSupport'].max() > TAT, 1,
                                          0)  # df['TotalAbsSupport'] / df['EventCount']
-        df['Timespan'] = timespan
-        df['Flexibility'] = df['TimeAssociation'].sum() * 60 / df['Timespan'][0]
+        df['TimespanMean'] = timespan_mean
+        df['TimespanMax'] = timespan_max
+        df['Flexibility'] = df['TimeAssociation'].sum() * 60 / df['TimespanMax'][0]
         rule_dict[row['pattern']] = df.copy()
     return rule_dict
 
@@ -186,3 +210,6 @@ def redundancy_filter_tool(dataframe, regex_str='MB[\w]*>[\w]*MB', multi_floor=T
     return dataframe.loc[(dataframe['pattern'].str.findall(regex_str).map(len) > 0) &
                          (dataframe['multi_floor'] == multi_floor) &
                          (dataframe['rule'] == rule_type)]
+
+if __name__ == '__main__':
+    print(SE_time_df(json_to_dataframe(year=2, level=1, with_redundancy=False))['Load_StatusApplianceDishwasher'])
