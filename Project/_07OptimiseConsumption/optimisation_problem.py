@@ -18,7 +18,7 @@ def extract_temporal_constraints(df: pd.DataFrame, app: str) -> list:
     :return: A list of two dataframes.
     """
     return [pd.DataFrame({app: df['TimeAssociation']}),
-            pd.DataFrame({app: df[['TimespanMean', 'TimespanMin', 'TimespanMax', 'Flexibility']][0]})]
+            pd.DataFrame({app: df.loc[0, ['TimespanMean', 'TimespanMin', 'TimespanMax', 'Flexibility']]})]
 
 
 def load_app_stats(loaded_stats: dict) -> dict:

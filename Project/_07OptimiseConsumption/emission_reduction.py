@@ -1,9 +1,6 @@
-import pandas as pd
-
 from Project.Database import Db
 from Project._05InferKnowledgeOfRules.infer_rules_functions import json_to_dataframe
-from Project._07OptimiseConsumption.optimisation_problem import hourly_house_df, slice_emission_vector, \
-    power_consumption, optimise_house_df
+from Project._07OptimiseConsumption.optimisation_problem import hourly_house_df, power_consumption, optimise_house_df
 
 
 def find_emissions(df, emission_vec):
@@ -47,13 +44,14 @@ def emission_reduction(year: int = 2):
 
     pattern_df = pattern_df.loc[lambda self: self['pattern'].isin(movable_appliances)]
 
-    NZERTF_optimisation['m.a.o'] = optimise_house_df(house_df=NZERTF_optimisation['w.o.r'].copy()[['Timestamp'] + movable_appliances],
-                                                     pattern_df=pattern_df,
-                                                     emission_vector=production,
-                                                     movable_appliances=movable_appliances,
-                                                     dependant_apps_rules=[
-                                                         'Load_StatusClothesWasher->Load_StatusDryerPowerTotal'],
-                                                     power_consum=power_consumption_vector)
+    NZERTF_optimisation['m.a.o'] = optimise_house_df(
+        house_df=NZERTF_optimisation['w.o.r'].copy()[['Timestamp'] + movable_appliances],
+        pattern_df=pattern_df,
+        emission_vector=production,
+        movable_appliances=movable_appliances,
+        dependant_apps_rules=[
+            'Load_StatusClothesWasher->Load_StatusDryerPowerTotal'],
+        power_consum=power_consumption_vector)
 
     for key, value in NZERTF_optimisation.items():
         df = value.copy()
@@ -67,7 +65,6 @@ def emission_reduction(year: int = 2):
                 key: df
             })
 
-
     NZERTF_emission = {}
 
     for key in NZERTF_optimisation.keys():
@@ -75,13 +72,25 @@ def emission_reduction(year: int = 2):
             key: NZERTF_optimisation[key]['Emission'].sum()
         })
 
+    NZERTF_optimisation['m.a.u.o'] = NZERTF_optimisation['m.a.o'].copy()[['Timestamp', 'Day', 'Hour']]
+    NZERTF_optimisation['m.a.u.o'][movable_appliances] = NZERTF_optimisation['m.a.o'].copy()[
+        [f'Old{col}' for col in movable_appliances]]
+    NZERTF_optimisation['m.a.u.o'][['Emission(g/Wh)', 'Emission']] = NZERTF_optimisation['m.a.o'].copy()[
+        ['Emission(g/Wh)', 'OldEmission']]
+
+    NZERTF_optimisation['m.a.o'].drop([col for col in NZERTF_optimisation['m.a.o'].columns if 'Old' in col],
+                                  axis=1,
+                                  inplace=True)
+
     NZERTF_emission['m.a.o'] = NZERTF_optimisation['m.a.o']['Emission'].sum()
-    NZERTF_emission['m.a.u.o'] = NZERTF_optimisation['m.a.o']['OldEmission'].sum()
+    NZERTF_emission['m.a.u.o'] = NZERTF_optimisation['m.a.u.o']['Emission'].sum()
 
     return NZERTF_optimisation, NZERTF_emission
+
 
 if __name__ == '__main__':
     optimisation, emission = emission_reduction(year=2)
     wr = optimisation['w.r']
     wor = optimisation['w.o.r']
     mao = optimisation['m.a.o']
+    mauo = optimisation['m.a.u.o']
