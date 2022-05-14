@@ -78,9 +78,16 @@ def emission_reduction(year: int = 2):
     NZERTF_optimisation['m.a.u.o'][['Emission(g/Wh)', 'Emission']] = NZERTF_optimisation['m.a.o'].copy()[
         ['Emission(g/Wh)', 'OldEmission']]
 
+    NZERTF_optimisation['m.a.o'][[f'{col}Emission' for col in movable_appliances]] = \
+        NZERTF_optimisation['m.a.o'][movable_appliances].multiply(power_consumption_vector.T).div(1_000).T.multiply(
+            production.reset_index(drop=True)).T
+    NZERTF_optimisation['m.a.o'][[f'{col}Emission' for col in movable_appliances]] = \
+        NZERTF_optimisation['m.a.o'][movable_appliances].multiply(power_consumption_vector.T).div(1_000).T.multiply(
+            production.reset_index(drop=True)).T
+
     NZERTF_optimisation['m.a.o'].drop([col for col in NZERTF_optimisation['m.a.o'].columns if 'Old' in col],
-                                  axis=1,
-                                  inplace=True)
+                                      axis=1,
+                                      inplace=True)
 
     NZERTF_emission['m.a.o'] = NZERTF_optimisation['m.a.o']['Emission'].sum()
     NZERTF_emission['m.a.u.o'] = NZERTF_optimisation['m.a.u.o']['Emission'].sum()
