@@ -425,7 +425,8 @@ def optimise_house_df(house_df: pd.DataFrame, pattern_df: pd.DataFrame, emission
                                                                   use_order=use_order)
 
             for day in pattern_events.keys():
-                event_count = find_event_count(day=pattern_events[day], durations=durations)
+                event_count = len(pattern_events[day])
+                # event_count = find_event_count(day=pattern_events[day], durations=durations)
 
                 if event_count > 0:
                     emissions, statuses = find_min_hour(energy_matrix=energy_matrix.copy(),
