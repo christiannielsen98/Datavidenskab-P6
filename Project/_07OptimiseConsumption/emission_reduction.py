@@ -23,7 +23,7 @@ def emission_reduction(year: int = 2):
 
     consumers = meta.tolist()
 
-    power_consumption_vector = power_consumption(movable_appliances=consumers)
+    power_consumption_vector = power_consumption(movable_appliances=meta.index.tolist())
 
     # with redundancy <- w.r
     # without redundancy <- w.o.r
@@ -81,14 +81,14 @@ def emission_reduction(year: int = 2):
             key: NZERTF_optimisation[key]['Emission'].sum()
         })
 
-    NZERTF_optimisation['w.r'][[f'{col}Emission' for col in consumers]] = \
-        NZERTF_optimisation['w.r'][consumers].multiply(
-            power_consumption_vector[consumers].T).div(
+    NZERTF_optimisation['w.r'][[f'{col}Emission' for col in meta.index.tolist()]] = \
+        NZERTF_optimisation['w.r'][meta.index.tolist()].multiply(
+            power_consumption_vector[meta.index.tolist()].T).div(
             1_000).T.multiply(
             production.reset_index(drop=True)).T
-    NZERTF_optimisation['w.o.r'][[f'{col}Emission' for col in consumers]] = \
-        NZERTF_optimisation['w.o.r'][consumers].multiply(
-            power_consumption_vector[consumers].T).div(
+    NZERTF_optimisation['w.o.r'][[f'{col}Emission' for col in meta.index.tolist()]] = \
+        NZERTF_optimisation['w.o.r'][meta.index.tolist()].multiply(
+            power_consumption_vector[meta.index.tolist()].T).div(
             1_000).T.multiply(production.reset_index(drop=True)).T
 
     NZERTF_optimisation['m.a.u.o'] = NZERTF_optimisation['m.a.o'].copy()[['Timestamp', 'Day', 'Hour']]
