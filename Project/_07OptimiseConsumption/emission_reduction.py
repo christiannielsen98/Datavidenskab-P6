@@ -23,7 +23,7 @@ def emission_reduction(year: int = 2):
 
     consumers = meta.tolist()
 
-    power_consumption_vector = power_consumption(movable_appliances=movable_appliances)
+    power_consumption_vector = power_consumption(movable_appliances=consumers)
 
     # with redundancy <- w.r
     # without redundancy <- w.o.r
@@ -60,7 +60,7 @@ def emission_reduction(year: int = 2):
         movable_appliances=movable_appliances,
         dependant_apps_rules=[
             'Load_StatusClothesWasher->Load_StatusDryerPowerTotal'],
-        power_consum=power_consumption_vector)
+        power_consum=power_consumption_vector[movable_appliances])
 
     for key, value in NZERTF_optimisation.items():
         df = value.copy()
@@ -81,6 +81,16 @@ def emission_reduction(year: int = 2):
             key: NZERTF_optimisation[key]['Emission'].sum()
         })
 
+    NZERTF_optimisation['w.r'][[f'{col}Emission' for col in consumers]] = \
+        NZERTF_optimisation['w.r'][consumers].multiply(
+            power_consumption_vector[consumers].T).div(
+            1_000).T.multiply(
+            production.reset_index(drop=True)).T
+    NZERTF_optimisation['w.o.r'][[f'{col}Emission' for col in consumers]] = \
+        NZERTF_optimisation['w.o.r'][consumers].multiply(
+            power_consumption_vector[consumers].T).div(
+            1_000).T.multiply(production.reset_index(drop=True)).T
+
     NZERTF_optimisation['m.a.u.o'] = NZERTF_optimisation['m.a.o'].copy()[['Timestamp', 'Day', 'Hour']]
     NZERTF_optimisation['m.a.u.o'][movable_appliances] = NZERTF_optimisation['m.a.o'].copy()[
         [f'Old{col}' for col in movable_appliances]]
@@ -88,11 +98,13 @@ def emission_reduction(year: int = 2):
         ['Emission(g/Wh)', 'OldEmission']]
 
     NZERTF_optimisation['m.a.o'][[f'{col}Emission' for col in movable_appliances]] = \
-        NZERTF_optimisation['m.a.o'][movable_appliances].multiply(power_consumption_vector.multiply(
-            power_factor).T).div(1_000).T.multiply(production.reset_index(drop=True)).T
+        NZERTF_optimisation['m.a.o'][movable_appliances].multiply(
+            power_consumption_vector[movable_appliances].multiply(power_factor).T).div(
+            1_000).T.multiply(production.reset_index(drop=True)).T
     NZERTF_optimisation['m.a.u.o'][[f'{col}Emission' for col in movable_appliances]] = \
-        NZERTF_optimisation['m.a.u.o'][movable_appliances].multiply(power_consumption_vector.T).div(1_000).T.multiply(
-            production.reset_index(drop=True)).T
+        NZERTF_optimisation['m.a.u.o'][movable_appliances].multiply(
+            power_consumption_vector[movable_appliances].T).div(
+            1_000).T.multiply(production.reset_index(drop=True)).T
 
     NZERTF_optimisation['m.a.o'].drop([col for col in NZERTF_optimisation['m.a.o'].columns if 'Old' in col],
                                       axis=1,
