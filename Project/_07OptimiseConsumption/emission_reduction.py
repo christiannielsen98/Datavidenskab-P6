@@ -10,6 +10,14 @@ from Project._07OptimiseConsumption.optimisation_problem import load_app_stats, 
 
 
 def find_emissions(df, emission_vec):
+    """
+    For each hour in the dataframe, multiply the energy consumption by the emission factor and add the result to the
+    emission column
+
+    :param df: the dataframe that contains the energy consumption data
+    :param emission_vec: a vector of emissions per unit of energy consumption
+    :return: The emission column of the dataframe.
+    """
     energy_vec = df.copy()['Consumption'].reset_index(drop=True)
     emission_vector = energy_vec.multiply(emission_vec)
     for index, emission in emission_vector[lambda self: self > 0].iteritems():
@@ -18,6 +26,13 @@ def find_emissions(df, emission_vec):
 
 
 def emission_reduction(year: int = 2):
+    """
+    It takes the data from the database, and optimises the movable appliances to reduce the overall emission
+
+    :param year: int = 2, defaults to 2
+    :type year: int (optional)
+    :return: A dictionary of dataframes and a dictionary of emissions.
+    """
     meta = Db.load_data(meta=True, hourly=False, year=year, consumption=False).loc[
         lambda self: (~self['Consumer_Match'].isna()), 'Consumer_Match']
 
@@ -132,6 +147,18 @@ def emission_reduction(year: int = 2):
 
 
 def create_intervals(start_, end_, start_index_, end_index_, start_frac_, end_frac_):
+    """
+    The function takes in the start and end times of a given interval, the start and end indices of the interval, and the
+    start and end fractions of the interval. It then returns the start and end times of the interval
+
+    :param start_: the start time of the interval
+    :param end_: the end time of the interval
+    :param start_index_: the index of the start time in the list of times
+    :param end_index_: the index of the end of the interval
+    :param start_frac_: The fraction of the hour that the start time is in
+    :param end_frac_: the fraction of the last hour that the event ends in
+    :return: the start and end times of the intervals.
+    """
     if start_index_ != end_index_:
         diff_start_ = start_ + pd.DateOffset(hours=1, minutes=0) - start_
         minutes_start_ = diff_start_.seconds / 60 * start_frac_
@@ -150,7 +177,14 @@ def create_intervals(start_, end_, start_index_, end_index_, start_frac_, end_fr
     return start_, end_
 
 
-def create_appliance_job_list_and_dataframes(year: int = 2):
+def create_gantt_data_and_event_dataframes(year: int = 2):
+    """
+    It takes the optimised dataframes and extracts the appliance events from them
+
+    :param year: int = 2, defaults to 2
+    :type year: int (optional)
+    :return: appliance_job_list, uo_event_df, o_event_df
+    """
     optim = emission_reduction(year=year)[0]
     NZERTF_meta = Db.load_data(hourly=False, meta=True, year=2, with_redundancy=True, consumption=False)
     appliance_job_list = []
