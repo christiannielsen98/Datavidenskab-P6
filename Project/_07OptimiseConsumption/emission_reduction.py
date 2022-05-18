@@ -51,6 +51,9 @@ def emission_reduction(year: int = 2):
     power_factor = pd.DataFrame(
         {col: df_list[1][df_list[1].columns[0]] for col, df_list in power_factor.items()},
         index=list(power_factor[list(power_factor.keys())[0]][1].index))
+    time_span_min = power_factor.loc['TimespanMin']
+    time_span_max = power_factor.loc['TimespanMax']
+    time_span_mean = power_factor.loc['TimespanMean']
     power_factor = power_factor.loc['TimespanMean'].div(power_factor.loc['TimespanMax'])[movable_appliances]
 
     NZERTF_optimisation['m.a.o'] = optimise_house_df(
@@ -84,8 +87,7 @@ def emission_reduction(year: int = 2):
     NZERTF_optimisation['w.r'][[f'{col}Emission' for col in meta.index.tolist()]] = \
         NZERTF_optimisation['w.r'][meta.index.tolist()].multiply(
             power_consumption_vector[meta.index.tolist()].T).div(
-            1_000).T.multiply(
-            production.reset_index(drop=True)).T
+            1_000).T.multiply(production.reset_index(drop=True)).T
     NZERTF_optimisation['w.o.r'][[f'{col}Emission' for col in meta.index.tolist()]] = \
         NZERTF_optimisation['w.o.r'][meta.index.tolist()].multiply(
             power_consumption_vector[meta.index.tolist()].T).div(
@@ -109,6 +111,16 @@ def emission_reduction(year: int = 2):
     NZERTF_optimisation['m.a.o'].drop([col for col in NZERTF_optimisation['m.a.o'].columns if 'Old' in col],
                                       axis=1,
                                       inplace=True)
+
+    NZERTF_optimisation['m.a.o'][
+        [f'{col}EventProportion' for col in movable_appliances]] = NZERTF_optimisation['m.a.o'][
+        movable_appliances].div(time_span_max[movable_appliances].div(60).round(4)).where(
+        NZERTF_optimisation['m.a.o'][movable_appliances] > 0).fillna(0)
+
+    NZERTF_optimisation['m.a.u.o'][
+        [f'{col}EventProportion' for col in movable_appliances]] = NZERTF_optimisation['m.a.u.o'][
+        movable_appliances].div(time_span_mean[movable_appliances].div(60).round(4)).where(
+        NZERTF_optimisation['m.a.u.o'][movable_appliances] > 0).fillna(0).round(1)
 
     NZERTF_emission['m.a.o'] = NZERTF_optimisation['m.a.o']['Emission'].sum()
     NZERTF_emission['m.a.u.o'] = NZERTF_optimisation['m.a.u.o']['Emission'].sum()
