@@ -177,7 +177,7 @@ def create_intervals(start_, end_, start_index_, end_index_, start_frac_, end_fr
     return start_, end_
 
 
-def create_gantt_data_and_event_dataframes(year: int = 2):
+def create_gantt_data_and_event_dataframes(optim: dict):
     """
     It takes the optimised dataframes and extracts the appliance events from them
 
@@ -185,7 +185,7 @@ def create_gantt_data_and_event_dataframes(year: int = 2):
     :type year: int (optional)
     :return: appliance_job_list, uo_event_df, o_event_df
     """
-    optim = emission_reduction(year=year)[0]
+
     NZERTF_meta = Db.load_data(hourly=False, meta=True, year=2, with_redundancy=True, consumption=False)
     appliance_job_list = []
     uo_event_df = pd.DataFrame()
