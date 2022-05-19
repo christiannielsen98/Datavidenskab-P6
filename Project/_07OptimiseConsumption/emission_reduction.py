@@ -213,9 +213,9 @@ def create_gantt_data_and_event_dataframes(year: int = 2):
                 minute_appliances_status[appliance] > 0, 1, 0) != np.where(
                 minute_appliances_status[appliance].shift(1) > 0, 1, 0))][["Timestamp", appliance]][1:]
             appliance_switch.reset_index(inplace=True, drop=True)
-            event_length = df.loc[lambda self: self[f'{appliance}EventProportion'] > 0, appliance].div(
+            event_length = round(df.loc[lambda self: self[f'{appliance}EventProportion'] > 0, appliance].div(
                 df.loc[lambda self: self[f'{appliance}EventProportion'] > 0,
-                       f'{appliance}EventProportion']).mean().round(4)
+                       f'{appliance}EventProportion']).mean(), 4)
             for index, row in appliance_switch.iterrows():
                 if row[appliance]:
                     try:
