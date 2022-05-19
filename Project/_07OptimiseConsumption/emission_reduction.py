@@ -177,7 +177,7 @@ def create_intervals(start_, end_, start_index_, end_index_, start_frac_, end_fr
     return start_, end_
 
 
-def create_gantt_data_and_event_dataframes(year: int = 2):
+def create_gantt_data_and_event_dataframes(optim: dict):
     """
     It takes the optimised dataframes and extracts the appliance events from them
 
@@ -185,7 +185,7 @@ def create_gantt_data_and_event_dataframes(year: int = 2):
     :type year: int (optional)
     :return: appliance_job_list, uo_event_df, o_event_df
     """
-    optim = emission_reduction(year=year)[0]
+
     NZERTF_meta = Db.load_data(hourly=False, meta=True, year=2, with_redundancy=True, consumption=False)
     appliance_job_list = []
     uo_event_df = pd.DataFrame()
@@ -213,9 +213,9 @@ def create_gantt_data_and_event_dataframes(year: int = 2):
                 minute_appliances_status[appliance] > 0, 1, 0) != np.where(
                 minute_appliances_status[appliance].shift(1) > 0, 1, 0))][["Timestamp", appliance]][1:]
             appliance_switch.reset_index(inplace=True, drop=True)
-            event_length = df.loc[lambda self: self[f'{appliance}EventProportion'] > 0, appliance].div(
+            event_length = round(df.loc[lambda self: self[f'{appliance}EventProportion'] > 0, appliance].div(
                 df.loc[lambda self: self[f'{appliance}EventProportion'] > 0,
-                       f'{appliance}EventProportion']).mean().round(4)
+                       f'{appliance}EventProportion']).mean(), 4)
             for index, row in appliance_switch.iterrows():
                 if row[appliance]:
                     try:
