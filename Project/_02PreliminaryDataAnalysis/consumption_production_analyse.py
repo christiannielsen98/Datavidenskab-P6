@@ -3,36 +3,24 @@ import plotly.graph_objects as go
 
 from Project.Database import Db
 
-year1_hourly, meta = Db.load_data(hourly=True, meta=True, year=1)
-year2_hourly, meta = Db.load_data(hourly=True, meta=True, year=2)
 
-
-def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
-    consumption_condition = (lambda self: (
-            (self["Units"] == "W") &
-            self["Description"].str.contains("power consumption" or "used") &
-            ~(self.index == "Elec_PowerMicrowave") &
-            ~(self.index == "Elec_PowerRefrigerator") &
-            ~(self.index == "Elec_PowerClothesWasher") &
-            ~self.index.str.contains("Elec_[\w]+HVAC") &
-            (~self.index.str.contains("DHW_") |
-             self.index.str.contains("DHW_[\w]+Total")) &
-            (~self.index.str.contains("Load_") |
-             ~self.index.str.contains("Load_Microwave") &
-             self.index.str.contains("Load_[\w]+Standby"))))
+def aggregate_conum_prod_sum(df: pd.DataFrame, meta_data: pd.DataFrame):
+    consumption_condition = (lambda self: (~self['Consumer_Match'].isna()))
 
     consumption = meta_data.loc[consumption_condition].index.tolist()
 
     production = meta_data.loc[(meta_data['Parameter'] == "Power_Electrical") & (
         meta_data["Description"].str.contains("produced"))].index.tolist()
 
-    year1_consumption_production = df[["Timestamp"] + consumption + production].copy()
+    df = df[["Timestamp"] + consumption + production].copy()
 
-    year1_consumption_production["Mean_consumption"] = year1_consumption_production[consumption].sum(1)
-    year1_consumption_production["Mean_production"] = year1_consumption_production[production].sum(1)
+    df["Mean_consumption"] = df[consumption].sum(1)
+    df["Mean_production"] = df[production].sum(1)
 
-    agg_consum_prod = year1_consumption_production[["Timestamp", "Mean_consumption", "Mean_production"]].copy()
+    return df[["Timestamp", "Mean_consumption", "Mean_production"]].copy()
 
+
+def heatmap_generator(agg_consum_prod, x: str = "HourOfDay", y: str = "MonthOfYear"):
     # Forces Timestamp to the type of datetime, to extract the hour of Timestamp.
     agg_consum_prod['Timestamp'] = pd.to_datetime(agg_consum_prod['Timestamp'], errors="coerce", utc=True,
                                                   format="%Y-%m-%d %H:%M:%S%z")
@@ -41,6 +29,7 @@ def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
     agg_consum_prod["MonthOfYear"] = agg_consum_prod.Timestamp.dt.month
     months = {1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June', 7: 'Juli', 8: 'August',
               9: 'September', 10: 'October', 11: 'November', 12: 'December'}
+
     agg_consum_prod["MonthOfYear"] = agg_consum_prod["MonthOfYear"].map(months)
     agg_consum_prod["DayOfWeek"] = agg_consum_prod.Timestamp.dt.dayofweek
     days = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
@@ -69,7 +58,13 @@ def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
             t=50,
         ), xaxis_nticks=30,
             yaxis_nticks=10,
-            yaxis={'categoryarray': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']},
+            yaxis={'categoryarray': ['Monday',
+                                     'Tuesday',
+                                     'Wednesday',
+                                     'Thursday',
+                                     'Friday',
+                                     'Saturday',
+                                     'Sunday']},
             font=dict(
                 size=20
             ),
@@ -84,8 +79,18 @@ def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
             ),
             xaxis_nticks=30,
             yaxis_nticks=20,
-            yaxis={'categoryarray': ['January', 'February', 'March', 'April', 'May', 'June', 'Juli', 'August',
-                                     'September', 'October', 'November', 'December']},
+            yaxis={'categoryarray': ['January',
+                                     'February',
+                                     'March',
+                                     'April',
+                                     'May',
+                                     'June',
+                                     'Juli',
+                                     'August',
+                                     'September',
+                                     'October',
+                                     'November',
+                                     'December']},
             font=dict(
                 size=20
             ),
@@ -94,43 +99,11 @@ def heatmap_generator(df, meta_data, x="HourOfDay", y="MonthOfYear"):
     fig.update_xaxes(title_text=x)
     fig.update_yaxes(title_text=y)
 
-    fig.write_html(Db.get_save_file_directory(f"{x}-over-{y}.html"))
-    # fig.show()
+    # fig.write_html(Db.get_save_file_directory(f"{x}-over-{y}.html"))
+    fig.show()
 
 
-# heatmap_generator(year1_hourly, meta, x="HourOfDay", y="DayOfWeek")
-# heatmap_generator(year1_hourly, meta, x="HourOfDay", y="MonthOfYear")
-
-
-# heatmap_generator(year1_hourly, meta, x="WeekdayOfTimestamp", y="MonthOfYear")
-
-
-def average_consumption_production_line(df, meta_data):
-    consumption_condition = (lambda self: (
-            (self["Units"] == "W") &
-            self["Description"].str.contains("power consumption" or "used") &
-            ~(self.index == "Elec_PowerMicrowave") &
-            ~(self.index == "Elec_PowerRefrigerator") &
-            ~(self.index == "Elec_PowerClothesWasher") &
-            ~self.index.str.contains("Elec_[\w]+HVAC") &
-            (~self.index.str.contains("DHW_") |
-             self.index.str.contains("DHW_[\w]+Total")) &
-            (~self.index.str.contains("Load_") |
-             ~self.index.str.contains("Load_Microwave") &
-             self.index.str.contains("Load_[\w]+Standby"))))
-
-    consumption = meta_data.loc[consumption_condition].index.tolist()
-
-    production = meta_data.loc[(meta_data['Parameter'] == "Power_Electrical") & (
-        meta_data["Description"].str.contains("produced"))].index.tolist()
-
-    year1_consumption_production = df[["Timestamp"] + consumption + production].copy()
-
-    year1_consumption_production["Mean_consumption"] = year1_consumption_production[consumption].sum(1)
-    year1_consumption_production["Mean_production"] = year1_consumption_production[production].sum(1)
-
-    agg_consum_prod = year1_consumption_production[["Timestamp", "Mean_consumption", "Mean_production"]].copy()
-
+def average_consumption_production_line(agg_consum_prod):
     # Forces Timestamp to the type of datetime, to extract the hour of Timestamp.
     agg_consum_prod['Timestamp'] = pd.to_datetime(agg_consum_prod['Timestamp'], errors="coerce", utc=True,
                                                   format="%Y-%m-%d %H:%M:%S%z")
@@ -153,12 +126,6 @@ def average_consumption_production_line(df, meta_data):
     )
 
     fig.update_layout(
-        # margin=dict(
-        # l=30,
-        # r=30,
-        # b=30,
-        # t=50,
-        # ),
         xaxis_nticks=30,
         yaxis_nticks=20,
         font=dict(
@@ -172,5 +139,12 @@ def average_consumption_production_line(df, meta_data):
     fig.show()
 
 
-average_consumption_production_line(df=year1_hourly, meta_data=meta)
-average_consumption_production_line(df=year2_hourly, meta_data=meta)
+if __name__ == '__main__':
+    for year in [1, 2]:
+        house_df, meta = Db.load_data(hourly=True, meta=True, year=year)
+        aggregate_conum_prod_sum = aggregate_conum_prod_sum(df=house_df, meta_data=meta)
+        heatmap_generator(aggregate_conum_prod_sum, x="HourOfDay", y="DayOfWeek")
+        heatmap_generator(aggregate_conum_prod_sum, x="HourOfDay", y="MonthOfYear")
+        heatmap_generator(aggregate_conum_prod_sum, x="DayOfWeek", y="MonthOfYear")
+
+        average_consumption_production_line(aggregate_conum_prod_sum)

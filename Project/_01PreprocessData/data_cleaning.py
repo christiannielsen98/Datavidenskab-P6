@@ -33,16 +33,12 @@ def data_cleaner(hourly, year):
     house, meta = Db.load_data(hourly=hourly, meta=True, year=year, from_csv=True)
 
     meta.set_index('Unnamed: 0', inplace=True)
-    # meta = meta.loc[~((~pd.isnull(house)).sum(0) <= (house.shape[0] / 2))]
 
     status_columns = meta.loc[(lambda self: self['Units'] == 'Binary Status')].index.tolist()
     consumer_columns = meta.loc[(lambda self: self['Units'] == 'W')].index.tolist()
 
-    # house[(house[status_columns] != 0) & (house[status_columns] != 1)] = np.NaN
-    # house = house.ffill()
     house[status_columns] = np.where(house[status_columns] > 0, 1, 0)
 
-    # meta = meta.loc[(house != house.shift(1)).sum(0) > 1]
     house = house[['Timestamp'] + meta.index.tolist()]
 
     house['Timestamp'] = house['Timestamp'].str.split('-0[45]:00', expand=True)[0]
@@ -146,7 +142,8 @@ def data_cleaner(hourly, year):
     meta.loc['Load_StatusApplianceCooktop', 'Consumer_Match'] = 'Elec_PowerGarbageDisposal'
     meta.loc['Load_StatusEntryHallLights', 'Consumer_Match'] = 'Elec_PowerLights1stFloorB'
     meta.loc['Load_StatusBA1Lights', 'Consumer_Match'] = 'Elec_PowerLights1stFloorB'
-    meta.loc[lambda self: self['Consumer_Match'] == 'Elec_PowerPlugsInstMBRA', 'Consumer_Match'] = 'Load_MBRPlugLoadsPowerUsage'
+    meta.loc[lambda self: self[
+                              'Consumer_Match'] == 'Elec_PowerPlugsInstMBRA', 'Consumer_Match'] = 'Load_MBRPlugLoadsPowerUsage'
     meta.loc['Load_StatusPlugLoadHairDryerCurlIron', 'Consumer_Match'] = 'Elec_PowerPlugsMBAEast'
 
     meta.drop('DHW_Match', axis=1, inplace=True)

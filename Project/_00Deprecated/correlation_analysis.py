@@ -8,7 +8,7 @@ pd.options.mode.chained_assignment = None
 year1_minute, meta = Db.load_data(hourly=False, meta=True, year=1)
 
 consumption = meta.loc[((meta['Parameter'] == "Power_Electrical") | (meta['Parameter'] == "Power_Thermal")) & (
-    meta["Description"].str.contains("power consumption" or "used"))]["Unnamed: 0"].tolist()
+    meta["Description"].str.contains("power consumption" or "used"))].index.tolist()
 
 correlation_df = year1_minute[consumption].corr()
 np.fill_diagonal(correlation_df.values, np.NaN)
